@@ -1,0 +1,32 @@
+/*
+ * This stylesheet contains global overrides and customisations for
+ * Element Plus.  Importing this file after the default Element Plus
+ * CSS allows us to tweak colours, typography and layout across the
+ * application.  Feel free to extend these styles to match your
+ * branding or design guidelines.
+ */
+
+/* Reset default margins on the body to ensure layouts use the full
+   viewport height. */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: #f5f7fa;
+  color: #1f2d3d;
+}
+
+/* Adjust Element Plus button margins when used inline. */
+.el-button + .el-button {
+  margin-left: 8px;
+}
+
+/* Provide spacing below filter controls in list pages. */
+.filters {
+  margin-bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.filters .filter-item {
+  min-width: 140px;
+}
