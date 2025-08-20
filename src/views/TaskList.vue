@@ -90,13 +90,12 @@
             <el-option label="每月" value="每月" />
           </el-select>
         </el-form-item>
-          <el-form-item label="截止时间">
-            <el-date-picker
-              v-model="newTask.dueDate"
-              type="datetime"
-              value-format="YYYY-MM-DDTHH:mm:ssZ"
-            />
-          </el-form-item>
+        <el-form-item label="截止时间">
+          <el-date-picker
+            v-model="newTask.dueDate"
+            type="datetime"
+          />
+        </el-form-item>
         <el-form-item label="描述">
           <el-input type="textarea" v-model="newTask.description" />
         </el-form-item>
@@ -135,7 +134,6 @@
             <el-date-picker
               v-model="selectedTask.dueDate"
               type="datetime"
-              value-format="YYYY-MM-DDTHH:mm:ssZ"
             />
           </el-form-item>
           <el-form-item label="描述">
@@ -167,8 +165,10 @@ const keyword = ref('')
 const statusFilter = ref('')
 const locationFilter = ref('')
 const recFilter = ref('')
-const dueStart = ref<string | null>(null)
-const dueEnd = ref<string | null>(null)
+// Due date filters use Date objects so we can perform proper
+// chronological comparisons without relying on string ordering.
+const dueStart = ref<Date | null>(null)
+const dueEnd = ref<Date | null>(null)
 const sortBy = ref('id-desc')
 
 /**
@@ -203,12 +203,10 @@ const filteredTasks = computed(() => {
   }
   // due date range filter
   if (dueStart.value) {
-    const start = new Date(dueStart.value)
-    items = items.filter(t => t.dueDate && new Date(t.dueDate) >= start)
+    items = items.filter(t => t.dueDate && new Date(t.dueDate) >= dueStart.value!)
   }
   if (dueEnd.value) {
-    const end = new Date(dueEnd.value)
-    items = items.filter(t => t.dueDate && new Date(t.dueDate) <= end)
+    items = items.filter(t => t.dueDate && new Date(t.dueDate) <= dueEnd.value!)
   }
   // sorting
   const sort = sortBy.value
@@ -234,17 +232,18 @@ const filteredTasks = computed(() => {
 
 // New task form state
 const addDialogVisible = ref(false)
-const newTask = reactive<Omit<Task, 'id' | 'createdAt' | 'synced'>>({
+// Use Date for dueDate so that Element Plus date pickers bind correctly.
+const newTask = reactive({
   title: '',
-  status: '新建',
+  status: '新建' as Task['status'],
   location: '',
   recurrence: '',
-  dueDate: '',
+  dueDate: null as Date | null,
   description: ''
 })
 
 function openAdd() {
-  Object.assign(newTask, { title: '', status: '新建', location: '', recurrence: '', dueDate: '', description: '' })
+  Object.assign(newTask, { title: '', status: '新建' as Task['status'], location: '', recurrence: '', dueDate: null, description: '' })
   addDialogVisible.value = true
 }
 
@@ -252,10 +251,10 @@ function addTask() {
   if (!newTask.title) {
     return
   }
-  const due = newTask.dueDate ? new Date(newTask.dueDate).toISOString() : undefined
+  const due = newTask.dueDate ? newTask.dueDate.toISOString() : undefined
   store.add({
     title: newTask.title,
-    status: newTask.status as Task['status'],
+    status: newTask.status,
     location: newTask.location || undefined,
     recurrence: newTask.recurrence || undefined,
     dueDate: due,
@@ -266,10 +265,13 @@ function addTask() {
 
 // Details dialog state
 const detailDialogVisible = ref(false)
-const selectedTask = ref<Task | null>(null)
+const selectedTask = ref<(Task & { dueDate?: string | Date }) | null>(null)
 
 function openDetails(task: Task) {
-  selectedTask.value = { ...task }
+  selectedTask.value = {
+    ...task,
+    dueDate: task.dueDate ? new Date(task.dueDate) : undefined
+  }
   detailDialogVisible.value = true
 }
 
