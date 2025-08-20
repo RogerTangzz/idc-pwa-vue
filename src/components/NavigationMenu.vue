@@ -1,12 +1,17 @@
 <template>
   <!--
-    NavigationMenu renders the main navigation for the application.  It
+    NavigationMenu renders the main navigation for the application. It
     mirrors the button bar found in the original IDC PWA and exposes
-    links to each functional area of the system.  The Element Plus
-    `el-menu` component automatically highlights the active route when
-    the `router` attribute is present and the `index` matches the
-    route path.  Adjust or extend the menu items here to add new
-    sections.
+    links to each functional area of the system.
+
+    The Element Plus `el-menu` component highlights the active route
+    when the `router` attribute is present and the `index` matches the
+    route path. In this implementation we additionally bind
+    `:default-active="route.path"` so both the bound value and
+    router-driven behaviour control which menu item appears active.
+    Removing `:default-active` would cause the menu to rely entirely on
+    the router to determine the highlighted item. Adjust or extend the
+    menu items here to add new sections.
   -->
   <el-menu
     :default-active="route.path"
