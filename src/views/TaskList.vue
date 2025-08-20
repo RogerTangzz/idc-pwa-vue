@@ -159,8 +159,10 @@ const keyword = ref('')
 const statusFilter = ref('')
 const locationFilter = ref('')
 const recFilter = ref('')
-const dueStart = ref<string | null>(null)
-const dueEnd = ref<string | null>(null)
+// Due date filters use Date objects so we can perform proper
+// chronological comparisons without relying on string ordering.
+const dueStart = ref<Date | null>(null)
+const dueEnd = ref<Date | null>(null)
 const sortBy = ref('id-desc')
 
 /**
@@ -195,10 +197,10 @@ const filteredTasks = computed(() => {
   }
   // due date range filter
   if (dueStart.value) {
-    items = items.filter(t => t.dueDate && t.dueDate >= dueStart.value)
+    items = items.filter(t => t.dueDate && new Date(t.dueDate) >= dueStart.value!)
   }
   if (dueEnd.value) {
-    items = items.filter(t => t.dueDate && t.dueDate <= dueEnd.value)
+    items = items.filter(t => t.dueDate && new Date(t.dueDate) <= dueEnd.value!)
   }
   // sorting
   const sort = sortBy.value
@@ -216,17 +218,18 @@ const filteredTasks = computed(() => {
 
 // New task form state
 const addDialogVisible = ref(false)
-const newTask = reactive<Omit<Task, 'id' | 'createdAt' | 'synced'>>({
+// Use Date for dueDate so that Element Plus date pickers bind correctly.
+const newTask = reactive({
   title: '',
-  status: '新建',
+  status: '新建' as Task['status'],
   location: '',
   recurrence: '',
-  dueDate: '',
+  dueDate: null as Date | null,
   description: ''
 })
 
 function openAdd() {
-  Object.assign(newTask, { title: '', status: '新建', location: '', recurrence: '', dueDate: '', description: '' })
+  Object.assign(newTask, { title: '', status: '新建' as Task['status'], location: '', recurrence: '', dueDate: null, description: '' })
   addDialogVisible.value = true
 }
 
@@ -236,10 +239,10 @@ function addTask() {
   }
   store.add({
     title: newTask.title,
-    status: newTask.status as Task['status'],
+    status: newTask.status,
     location: newTask.location || undefined,
     recurrence: newTask.recurrence || undefined,
-    dueDate: newTask.dueDate || undefined,
+    dueDate: newTask.dueDate ? newTask.dueDate.toISOString() : undefined,
     description: newTask.description || undefined
   })
   addDialogVisible.value = false
@@ -247,10 +250,13 @@ function addTask() {
 
 // Details dialog state
 const detailDialogVisible = ref(false)
-const selectedTask = ref<Task | null>(null)
+const selectedTask = ref<(Task & { dueDate?: string | Date }) | null>(null)
 
 function openDetails(task: Task) {
-  selectedTask.value = { ...task }
+  selectedTask.value = {
+    ...task,
+    dueDate: task.dueDate ? new Date(task.dueDate) : undefined
+  }
   detailDialogVisible.value = true
 }
 
@@ -261,7 +267,9 @@ function updateTask() {
       status: selectedTask.value.status,
       location: selectedTask.value.location,
       recurrence: selectedTask.value.recurrence,
-      dueDate: selectedTask.value.dueDate,
+      dueDate: selectedTask.value.dueDate
+        ? new Date(selectedTask.value.dueDate).toISOString()
+        : undefined,
       description: selectedTask.value.description
     })
   }
