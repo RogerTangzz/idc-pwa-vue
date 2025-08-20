@@ -90,9 +90,13 @@
             <el-option label="每月" value="每月" />
           </el-select>
         </el-form-item>
-        <el-form-item label="截止时间">
-          <el-date-picker v-model="newTask.dueDate" type="datetime" />
-        </el-form-item>
+          <el-form-item label="截止时间">
+            <el-date-picker
+              v-model="newTask.dueDate"
+              type="datetime"
+              value-format="YYYY-MM-DDTHH:mm:ssZ"
+            />
+          </el-form-item>
         <el-form-item label="描述">
           <el-input type="textarea" v-model="newTask.description" />
         </el-form-item>
@@ -128,7 +132,11 @@
             </el-select>
           </el-form-item>
           <el-form-item label="截止时间">
-            <el-date-picker v-model="selectedTask.dueDate" type="datetime" />
+            <el-date-picker
+              v-model="selectedTask.dueDate"
+              type="datetime"
+              value-format="YYYY-MM-DDTHH:mm:ssZ"
+            />
           </el-form-item>
           <el-form-item label="描述">
             <el-input type="textarea" v-model="selectedTask.description" />
@@ -195,10 +203,12 @@ const filteredTasks = computed(() => {
   }
   // due date range filter
   if (dueStart.value) {
-    items = items.filter(t => t.dueDate && t.dueDate >= dueStart.value)
+    const start = new Date(dueStart.value)
+    items = items.filter(t => t.dueDate && new Date(t.dueDate) >= start)
   }
   if (dueEnd.value) {
-    items = items.filter(t => t.dueDate && t.dueDate <= dueEnd.value)
+    const end = new Date(dueEnd.value)
+    items = items.filter(t => t.dueDate && new Date(t.dueDate) <= end)
   }
   // sorting
   const sort = sortBy.value
@@ -207,9 +217,17 @@ const filteredTasks = computed(() => {
   } else if (sort === 'id-asc') {
     items.sort((a, b) => a.id - b.id)
   } else if (sort === 'due-desc') {
-    items.sort((a, b) => (b.dueDate || '').localeCompare(a.dueDate || ''))
+    items.sort((a, b) => {
+      const ad = a.dueDate ? new Date(a.dueDate).getTime() : 0
+      const bd = b.dueDate ? new Date(b.dueDate).getTime() : 0
+      return bd - ad
+    })
   } else if (sort === 'due-asc') {
-    items.sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''))
+    items.sort((a, b) => {
+      const ad = a.dueDate ? new Date(a.dueDate).getTime() : 0
+      const bd = b.dueDate ? new Date(b.dueDate).getTime() : 0
+      return ad - bd
+    })
   }
   return items
 })
@@ -234,12 +252,13 @@ function addTask() {
   if (!newTask.title) {
     return
   }
+    const due = newTask.dueDate ? new Date(newTask.dueDate).toISOString() : undefined
   store.add({
     title: newTask.title,
     status: newTask.status as Task['status'],
     location: newTask.location || undefined,
     recurrence: newTask.recurrence || undefined,
-    dueDate: newTask.dueDate || undefined,
+    dueDate: due,
     description: newTask.description || undefined
   })
   addDialogVisible.value = false
@@ -256,12 +275,15 @@ function openDetails(task: Task) {
 
 function updateTask() {
   if (selectedTask.value) {
+        const due = selectedTask.value.dueDate
+      ? new Date(selectedTask.value.dueDate).toISOString()
+      : undefined
     store.update(selectedTask.value.id, {
       title: selectedTask.value.title,
       status: selectedTask.value.status,
       location: selectedTask.value.location,
       recurrence: selectedTask.value.recurrence,
-      dueDate: selectedTask.value.dueDate,
+      dueDate: due,
       description: selectedTask.value.description
     })
   }
