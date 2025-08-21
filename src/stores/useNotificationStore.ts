@@ -8,18 +8,21 @@ import {
   confirmNotification as apiConfirmNotification
 } from '@/services/notificationService'
 
-/** 统一后的通知模型（兼容测试分支与管理/统计分支） */
+/** 统一后的通知模型（兼容“消息/已读”分支与“管理/统计/服务”分支） */
 export interface Notification {
   id: number
 
-  // 测试分支字段
-  message?: string
-  confirmed?: boolean
-
-  // 管理/统计分支字段
+  // 测试/简单分支字段
   title?: string
+  message?: string
+  type?: string          // e.g. info/warn...
+  read?: boolean
+  date?: string          // 兼容旧字段；与 createdAt 同步
+
+  // 管理/统计/服务分支字段
   content?: string
   publisher?: string
+  confirmed?: boolean
   confirmedCount?: number
 
   // 公共字段
@@ -39,7 +42,8 @@ const STORAGE_KEY = 'idc-notifications'
 /** 将任意对象规范化为统一 Notification 结构 */
 function normalize(n: any, fallbackId: number): Notification {
   const id = typeof n?.id === 'number' ? n.id : fallbackId
-  const createdAt = n?.createdAt ? String(n.createdAt) : new Date().toISOString()
+  const srcCreated = n?.createdAt ?? n?.date
+  const createdAt = srcCreated ? String(srcCreated) : new Date().toISOString()
 
   const title =
     n?.title != null ? String(n.title)
@@ -62,13 +66,19 @@ function normalize(n: any, fallbackId: number): Notification {
     : typeof n?.confirmed === 'number' ? Number(n.confirmed)
     : confirmedBool ? 1 : 0
 
+  const read =
+    typeof n?.read === 'boolean' ? n.read : false
+
   return {
     id,
     createdAt,
+    date: createdAt, // 同步一份以兼容旧 UI
     title,
     content: n?.content != null ? String(n.content) : undefined,
     publisher: n?.publisher != null ? String(n.publisher) : undefined,
     message,
+    type: n?.type != null ? String(n.type) : undefined,
+    read,
     confirmed: confirmedBool,
     confirmedCount
   }
@@ -150,11 +160,11 @@ export const useNotificationStore = defineStore('notifications', {
     },
 
     /** 兼容两种调用：
-     *  - add('消息内容')  —— 测试分支（调用服务 postNotification）
-     *  - add({ title, content, publisher }) —— 管理分支（本地创建）
+     *  - add('消息内容')  —— 测试/简单分支（调用服务 postNotification）
+     *  - add({ title, content, publisher, type, ... }) —— 管理分支（本地创建）
      */
     async add(message: string): Promise<void>
-    async add(data: Omit<Notification, 'id' | 'createdAt' | 'confirmed' | 'confirmedCount'>): Promise<void>
+    async add(data: Omit<Notification, 'id' | 'createdAt' | 'confirmed' | 'confirmedCount' | 'read' | 'date'>): Promise<void>
     async add(arg: any) {
       this.loading = true
       this.error = null
@@ -162,37 +172,41 @@ export const useNotificationStore = defineStore('notifications', {
         const now = new Date().toISOString()
 
         if (typeof arg === 'string') {
-          // 测试分支：调用服务
+          // 字符串：走服务；失败则本地兜底
           try {
             const created = await postNotification(arg)
             const n = fromService(created, this.nextId)
             // 确保必要字段
             n.createdAt ||= now
+            n.date = n.createdAt
             n.title ||= arg
             n.message ||= arg
             n.confirmed ||= false
             n.confirmedCount ||= 0
+            n.read = false
             this.list.push(n)
             this.nextId = Math.max(this.nextId, n.id + 1)
           } catch {
-            // 服务失败也不阻塞：本地兜底
             const n: Notification = {
               id: this.nextId++,
               createdAt: now,
+              date: now,
               title: arg,
               message: arg,
+              read: false,
               confirmed: false,
               confirmedCount: 0
             }
             this.list.push(n)
           }
         } else {
-          // 管理分支：对象形式
+          // 对象：管理分支
           const n = normalize(
             {
               ...arg,
               id: this.nextId,
               createdAt: now,
+              read: false,
               confirmed: false,
               confirmedCount: 0
             },
@@ -256,6 +270,21 @@ export const useNotificationStore = defineStore('notifications', {
       } finally {
         this.loading = false
       }
+    },
+
+    /** 标记单条为已读（来自“复用组件”分支） */
+    markRead(id: number) {
+      const idx = this.list.findIndex(n => n.id === id)
+      if (idx !== -1) {
+        this.list[idx].read = true
+        this.save()
+      }
+    },
+
+    /** 全部标记为已读（来自“复用组件”分支） */
+    markAllRead() {
+      this.list = this.list.map(n => ({ ...n, read: true }))
+      this.save()
     },
 
     /** 管理页的删除 */

@@ -2,7 +2,21 @@
   <div>
     <h2>通知中心</h2>
 
-    <!-- 加载 / 错误（来自抽象服务分支） -->
+    <!-- 统计组件（复用组件分支） -->
+    <NotificationStats class="mb-2" />
+
+    <!-- 顶部工具条：示例数据 / 全部已读 -->
+    <div class="toolbar mb-4">
+      <el-button type="primary" @click="addSample">＋ 添加示例</el-button>
+      <el-button
+        @click="markAllRead"
+        :disabled="!store.list.some(n => !n.read)"
+      >
+        标记全部已读
+      </el-button>
+    </div>
+
+    <!-- 加载 / 错误（抽象服务分支） -->
     <div v-if="store.loading">加载中...</div>
     <div v-else>
       <div v-if="store.error" class="error">{{ store.error }}</div>
@@ -27,37 +41,80 @@
         </el-form-item>
       </form>
 
-      <!-- 列表（Element Plus） -->
+      <!-- 列表（合并两分支字段） -->
       <el-table :data="store.list" stripe style="width: 100%">
         <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column label="标题">
+        <el-table-column label="标题" min-width="180">
           <template #default="scope">
             {{ scope.row.title || scope.row.message || `通知 #${scope.row.id}` }}
           </template>
         </el-table-column>
-        <el-table-column prop="content" label="内容" />
-        <el-table-column prop="publisher" label="发布人" />
-        <el-table-column prop="createdAt" label="发布时间" />
-        <el-table-column label="确认数" width="80">
+        <el-table-column prop="content" label="内容" min-width="200" />
+        <el-table-column prop="publisher" label="发布人" width="140" />
+        <el-table-column label="类型" width="100">
+          <template #default="scope">{{ scope.row.type || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="时间" width="200">
+          <template #default="scope">
+            {{ scope.row.createdAt || scope.row.date }}
+          </template>
+        </el-table-column>
+        <el-table-column label="确认数" width="100">
           <template #default="scope">
             {{ scope.row.confirmedCount ?? (scope.row.confirmed ? 1 : 0) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120">
+        <el-table-column label="状态" width="90">
           <template #default="scope">
-            <el-button size="small" @click="confirm(scope.row.id)" data-test="confirm">已确认</el-button>
+            <el-tag type="success" v-if="scope.row.read">已读</el-tag>
+            <el-tag type="info" v-else>未读</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="260" fixed="right">
+          <template #default="scope">
+            <el-button
+              size="small"
+              @click="markRead(scope.row.id)"
+              :disabled="scope.row.read"
+            >
+              标记已读
+            </el-button>
+            <el-button
+              size="small"
+              @click="confirm(scope.row.id)"
+              data-test="confirm"
+            >
+              已确认
+            </el-button>
+            <el-button
+              size="small"
+              type="danger"
+              @click="remove(scope.row.id)"
+            >
+              删除
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
 
       <!-- 测试分支需要的统计文本 -->
-      <p class="mt-2" data-test="stats">未确认: {{ store.unconfirmedCount }} / 总数: {{ store.total }}</p>
+      <p class="mt-2" data-test="stats">
+        未确认: {{ store.unconfirmedCount }} / 总数: {{ store.total }}
+      </p>
 
-      <!-- 兼容测试分支：简单 UL 列表（保留 confirmed 样式） -->
+      <!-- 兼容测试分支：简单 UL 列表（直观验证） -->
       <ul class="mt-2">
         <li v-for="n in store.list" :key="n.id">
-          <span :class="{ confirmed: n.confirmed === true }">{{ n.title || n.message }}</span>
-          <button v-if="n.confirmed !== true" @click="confirm(n.id)" data-test="confirm">确认</button>
+          <span :class="{ confirmed: n.confirmed === true }">
+            {{ n.title || n.message }}
+          </span>
+          <button
+            v-if="n.confirmed !== true"
+            @click="confirm(n.id)"
+            data-test="confirm"
+          >
+            确认
+          </button>
           <span v-else>已确认</span>
         </li>
       </ul>
@@ -75,6 +132,7 @@
 import { ref, onMounted } from 'vue'
 import { useNotificationStore } from '@/stores/useNotificationStore'
 import { useAuthStore } from '@/stores/useAuthStore'
+import NotificationStats from '@/components/NotificationStats.vue'
 
 const store = useNotificationStore()
 const auth = useAuthStore()
@@ -91,6 +149,22 @@ const localError = ref('')
 const title = ref('')
 const content = ref('')
 
+/** 示例数据（复用组件分支） */
+function addSample() {
+  store.add({ title: '示例通知', message: '这是一条通知', type: '系统' })
+}
+
+/** 标记已读/全部已读/删除（复用组件分支） */
+function markRead(id: number) {
+  store.markRead(id)
+}
+function markAllRead() {
+  store.markAllRead()
+}
+function remove(id: number) {
+  store.remove(id)
+}
+
 /** 创建：优先使用测试输入 message，否则走管理表单 */
 async function create() {
   localError.value = ''
@@ -100,7 +174,11 @@ async function create() {
       message.value = ''
     } else if (title.value.trim() && content.value.trim()) {
       const publisher = auth.user?.username ?? '匿名'
-      await store.add({ title: title.value.trim(), content: content.value.trim(), publisher })
+      await store.add({
+        title: title.value.trim(),
+        content: content.value.trim(),
+        publisher
+      })
       title.value = ''
       content.value = ''
     }
@@ -138,6 +216,8 @@ async function confirm(id: number) {
 
 <style scoped>
 h2 { margin-bottom: 12px; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.mb-2 { margin-bottom: 8px; }
 .mb-4 { margin-bottom: 16px; }
 .mt-2 { margin-top: 12px; }
 .error { color: red; margin-bottom: 8px; }
