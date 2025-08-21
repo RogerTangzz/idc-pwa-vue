@@ -1,0 +1,44 @@
+{
+  "login": {
+    "title": "用户登录",
+    "username": "用户名",
+    "password": "密码",
+    "login": "登录",
+    "registerLink": "注册新账号",
+    "errorMissing": "请输入用户名和密码",
+    "errorInvalid": "用户名或密码不正确"
+  },
+  "register": {
+    "title": "注册新账号",
+    "username": "用户名",
+    "password": "密码",
+    "confirmPassword": "确认密码",
+    "role": "角色",
+    "selectRole": "请选择角色",
+    "admin": "管理员",
+    "inspector": "巡检员",
+    "engineer": "运维工程师",
+    "register": "注册",
+    "loginLink": "返回登录",
+    "errorMissing": "请填写所有字段",
+    "errorMismatch": "两次密码输入不一致",
+    "errorGeneric": "注册失败"
+  },
+  "tagList": {
+    "title": "标签管理",
+    "addTag": "添加标签",
+    "id": "ID",
+    "name": "名称",
+    "description": "描述",
+    "createdAt": "创建时间",
+    "actions": "操作",
+    "edit": "编辑",
+    "delete": "删除",
+    "addDialogTitle": "添加标签",
+    "editDialogTitle": "编辑标签",
+    "cancel": "取消",
+    "confirm": "确认",
+    "close": "关闭",
+    "save": "保存"
+  }
+}
