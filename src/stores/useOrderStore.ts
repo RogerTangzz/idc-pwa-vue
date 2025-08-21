@@ -14,14 +14,16 @@ export interface Order {
   emergencyMethod?: string
   faultDescription?: string
   maintainerSignature?: string
+  /** Base64 data URLs or external links */
   attachments?: string[]
   createdAt: string
   synced: boolean
 }
 
 function toStringArray(v: any): string[] {
-  if (Array.isArray(v)) return v.filter(x => typeof x === 'string')
-  if (typeof v === 'string') return [v]
+  const filter = (s: unknown) => typeof s === 'string' && !s.startsWith('blob:')
+  if (Array.isArray(v)) return v.filter(filter) as string[]
+  if (filter(v)) return [v as string]
   return []
 }
 

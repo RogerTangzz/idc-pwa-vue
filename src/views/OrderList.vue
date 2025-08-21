@@ -241,6 +241,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useOrderStore, Order } from '@/stores/useOrderStore'
 import type { UploadFile } from 'element-plus'
+import { ElMessage } from 'element-plus'
 
 const store = useOrderStore()
 
@@ -303,6 +304,17 @@ const newOrder = reactive<Omit<Order, 'id' | 'createdAt' | 'synced'>>({
   attachments: [] as string[],
   maintainerSignature: ''
 })
+
+const MAX_FILE_SIZE = 1024 * 1024 // 1MB
+
+function readAsDataURL(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
 function openAdd() {
   Object.assign(newOrder, {
@@ -385,28 +397,35 @@ function resetFilters() {
   clearTimeFilter.value = null
 }
 
-// --- attachments handlers (object URLs; for preview only) ---
-function handleNewUpload(file: UploadFile) {
-  if (file.raw) {
-    const url = URL.createObjectURL(file.raw)
-    file.url = url
-    newOrder.attachments.push(url)
+// --- attachments handlers ---
+async function handleNewUpload(file: UploadFile, fileList: UploadFile[]) {
+  if (!file.raw) return
+  if (file.raw.size > MAX_FILE_SIZE) {
+    ElMessage.error('文件大小超过 1MB 限制')
+    fileList.splice(fileList.indexOf(file), 1)
+    return
   }
+  const data = await readAsDataURL(file.raw)
+  file.url = data
+  newOrder.attachments.push(data)
 }
 function handleNewRemove(file: UploadFile) {
   if (file.url) {
     const idx = newOrder.attachments.indexOf(file.url)
     if (idx !== -1) newOrder.attachments.splice(idx, 1)
-    URL.revokeObjectURL(file.url)
   }
 }
-function handleDetailUpload(file: UploadFile) {
-  if (selectedOrder.value && file.raw) {
-    const url = URL.createObjectURL(file.raw)
-    file.url = url
-    if (!selectedOrder.value.attachments) selectedOrder.value.attachments = []
-    selectedOrder.value.attachments.push(url)
+async function handleDetailUpload(file: UploadFile, fileList: UploadFile[]) {
+  if (!selectedOrder.value || !file.raw) return
+  if (file.raw.size > MAX_FILE_SIZE) {
+    ElMessage.error('文件大小超过 1MB 限制')
+    fileList.splice(fileList.indexOf(file), 1)
+    return
   }
+  const data = await readAsDataURL(file.raw)
+  file.url = data
+  if (!selectedOrder.value.attachments) selectedOrder.value.attachments = []
+  selectedOrder.value.attachments.push(data)
 }
 function handleDetailRemove(file: UploadFile) {
   if (selectedOrder.value && file.url) {
@@ -415,7 +434,6 @@ function handleDetailRemove(file: UploadFile) {
       const idx = list.indexOf(file.url)
       if (idx !== -1) list.splice(idx, 1)
     }
-    URL.revokeObjectURL(file.url)
   }
 }
 </script>
