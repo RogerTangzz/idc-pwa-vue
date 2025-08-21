@@ -21,6 +21,8 @@ export interface Inspection {
   title: string
   /** 巡检人（旧数据可能没有） */
   inspector?: string
+  /** 接班/复核巡检人（为兼容搜索 UI 新增） */
+  relayInspector?: string
   /** ISO 日期或日期字符串，如 2025-08-21 / 2025-08-21T10:20:30Z */
   date: string
   /** 备注（旧数据可能没有） */
@@ -33,7 +35,7 @@ export interface Inspection {
   synced: boolean
 }
 
-/** 仅用于迁移：codex 分支的旧数据形状 */
+/** 仅用于迁移：codex 分支的旧数据形状（分组+物理量） */
 type LegacyCodexItem = {
   项目: string
   内容: string
@@ -48,6 +50,15 @@ type LegacyCodexRecord = {
   createdAt: string
   data: Record<string, LegacyCodexItem[]>
   abnormalCount: number
+}
+
+/** 仅用于迁移：极简搜索版对象（无 items，仅 remark 等） */
+type LegacySimpleRecord = {
+  id: number
+  inspector: string
+  relayInspector?: string
+  remark?: string
+  // 可能没有 date/title/items/abnormal/synced
 }
 
 const STORAGE_KEY = 'idc-inspections'
@@ -88,6 +99,7 @@ function fromLegacyCodex(o: LegacyCodexRecord, fallbackId: number): Inspection {
     id,
     title: `巡检记录 #${id}`,
     inspector: undefined,
+    relayInspector: undefined,
     date,
     notes: undefined,
     items,
@@ -96,8 +108,25 @@ function fromLegacyCodex(o: LegacyCodexRecord, fallbackId: number): Inspection {
   }
 }
 
-/** 兜底把“看起来像 main”的对象规整为规范 Inspection */
+/** 兜底把“看起来像 main/或极简搜索版”的对象规整为规范 Inspection */
 function normalizeLikeMain(o: any, fallbackId: number): Inspection {
+  // 极简搜索版（没有 items/abnormal/synced）
+  if (o && typeof o === 'object' && !Array.isArray(o.items) && o.inspector && (o.remark || o.relayInspector)) {
+    const id = typeof o?.id === 'number' ? o.id : fallbackId
+    return {
+      id,
+      title: String(o?.title ?? (o?.remark ? `巡检：${o.remark}` : `巡检记录 #${id}`)),
+      inspector: String(o.inspector),
+      relayInspector: o?.relayInspector ? String(o.relayInspector) : undefined,
+      date: String(o?.date ?? new Date().toISOString().slice(0, 10)),
+      notes: o?.remark ? String(o.remark) : (o?.notes ? String(o.notes) : undefined),
+      items: [],
+      abnormal: 0,
+      synced: false
+    }
+  }
+
+  // 近似 main 的对象
   const rawItems = Array.isArray(o?.items) ? o.items : []
   const items: InspectionItem[] = rawItems.map((it: any, idx: number) => ({
     id: typeof it?.id === 'number' ? it.id : idx + 1,
@@ -119,11 +148,12 @@ function normalizeLikeMain(o: any, fallbackId: number): Inspection {
     id: typeof o?.id === 'number' ? o.id : fallbackId,
     title: String(o?.title ?? ''),
     inspector: o?.inspector ? String(o.inspector) : undefined,
+    relayInspector: o?.relayInspector ? String(o.relayInspector) : undefined,
     date: String(o?.date ?? new Date().toISOString()),
     notes: o?.notes ? String(o.notes) : undefined,
     items,
     abnormal,
-    synced: Boolean(o?.synced)
+    synced: typeof o?.synced === 'boolean' ? o.synced : false
   }
 }
 
@@ -146,14 +176,14 @@ export const useInspectionStore = defineStore('inspections', {
         let migrated = false
 
         this.list = (Array.isArray(parsed) ? parsed : []).map((o: any, idx) => {
-          // codex 形状：存在 data（Record<string, LegacyCodexItem[]>）
+          // codex 分组版：存在 data（Record<string, LegacyCodexItem[]>）
           if (o && typeof o === 'object' && o.data && typeof o.data === 'object') {
             migrated = true
             return fromLegacyCodex(o as LegacyCodexRecord, idx + 1)
           }
-          // 其余按 main 形状规整
+          // 其余按 main/极简搜索版 形状规整
           const before = JSON.stringify(o)
-          const normalized = normalizeLikeMain(o, idx + 1)
+          const normalized = normalizeLikeMain(o as LegacySimpleRecord | any, idx + 1)
           const after = JSON.stringify(normalized)
           if (before !== after) migrated = true
           return normalized
@@ -185,6 +215,7 @@ export const useInspectionStore = defineStore('inspections', {
         id: this.nextId++,
         title: data.title,
         inspector: data.inspector,
+        relayInspector: data.relayInspector,
         date: data.date,
         notes: data.notes,
         items,
@@ -214,6 +245,77 @@ export const useInspectionStore = defineStore('inspections', {
     /** 按 id 获取 */
     getById(id: number) {
       return this.list.find(i => i.id === id)
+    },
+
+    /**
+     * 过滤函数：兼容搜索 UI 的参数
+     * - inspector: 精确等值匹配
+     * - relayInspector: 精确等值匹配
+     * - remark: 在 notes/title 中模糊包含（remark ~ notes 的别名）
+     * - keyword: 在 title/inspector/relayInspector/notes 中模糊包含
+     */
+    filter(params: { inspector?: string; relayInspector?: string; remark?: string; keyword?: string }) {
+      let items = [...this.list]
+      const eq = (a?: string, b?: string) => (a ?? '') === (b ?? '')
+
+      if (params.inspector) {
+        items = items.filter(i => eq(i.inspector, params.inspector))
+      }
+      if (params.relayInspector) {
+        items = items.filter(i => eq(i.relayInspector, params.relayInspector))
+      }
+      if (params.remark && params.remark.trim()) {
+        const kw = params.remark.trim()
+        items = items.filter(i =>
+          (i.notes && i.notes.includes(kw)) || (i.title && i.title.includes(kw))
+        )
+      }
+      if (params.keyword && params.keyword.trim()) {
+        const kw = params.keyword.trim()
+        items = items.filter(i =>
+          (i.title && i.title.includes(kw)) ||
+          (i.inspector && i.inspector.includes(kw)) ||
+          (i.relayInspector && i.relayInspector.includes(kw)) ||
+          (i.notes && i.notes.includes(kw))
+        )
+      }
+      return items
+    },
+
+    /**
+     * 兼容原分支的异步获取接口：这里等价于 load()
+     * 如需演示数据，可传入 seedIfEmpty=true 自动注入示例数据。
+     */
+    async fetchInspections(seedIfEmpty = false) {
+      this.load()
+      if (seedIfEmpty && this.list.length === 0) {
+        this.list = [
+          {
+            id: 1,
+            title: '机房温度检查',
+            inspector: '张三',
+            relayInspector: '李四',
+            date: new Date().toISOString().slice(0, 10),
+            notes: '示例记录：机房温度点检',
+            items: [],
+            abnormal: 0,
+            synced: false
+          },
+          {
+            id: 2,
+            title: 'UPS 巡检',
+            inspector: '王五',
+            relayInspector: '赵六',
+            date: new Date().toISOString().slice(0, 10),
+            notes: '示例记录：UPS 状态',
+            items: [],
+            abnormal: 0,
+            synced: false
+          }
+        ]
+        this.nextId = 3
+        this.save()
+      }
     }
   }
 })
