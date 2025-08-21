@@ -9,6 +9,7 @@
   <div class="auth-page">
     <el-card class="auth-card">
       <h2 class="title">{{ t('login.title') }}</h2>
+
       <el-form @submit.prevent="doLogin">
         <el-form-item :label="t('login.username')" label-width="70px">
           <el-input
@@ -18,6 +19,7 @@
             :aria-label="t('login.username')"
           />
         </el-form-item>
+
         <el-form-item :label="t('login.password')" label-width="70px">
           <el-input
             v-model="password"
@@ -26,14 +28,26 @@
             :aria-label="t('login.password')"
           />
         </el-form-item>
+
+        <el-alert
+          v-if="error"
+          :title="error"
+          type="error"
+          show-icon
+          class="mt-2"
+        />
+
         <el-form-item>
           <el-button
             type="primary"
+            :loading="loading"
+            :disabled="loading"
             @click="doLogin"
             :aria-label="t('login.login')"
           >
             {{ t('login.login') }}
           </el-button>
+
           <router-link
             to="/register"
             class="link"
@@ -42,7 +56,6 @@
             {{ t('login.registerLink') }}
           </router-link>
         </el-form-item>
-        <div v-if="error" class="error">{{ error }}</div>
       </el-form>
     </el-card>
   </div>
@@ -51,6 +64,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { t } from '@/locales'
 import type { InputInstance } from 'element-plus'
@@ -59,12 +73,10 @@ import type { InputInstance } from 'element-plus'
 const username = ref('')
 const password = ref('')
 const error = ref('')
+const loading = ref(false)
 const usernameInput = ref<InputInstance>()
 
-// Access the auth store and router.  Ensure persisted users are loaded
-// before attempting to authenticate.  When the component is created
-// Pinia automatically persists state; however calling load() here
-// ensures the store initialises from localStorage on first visit.
+// Access the auth store and router
 const auth = useAuthStore()
 auth.load()
 const router = useRouter()
@@ -73,21 +85,34 @@ onMounted(() => {
   usernameInput.value?.focus()
 })
 
-// Perform login and navigate to the home page on success.  On
-// failure the error message is displayed beneath the form.
-function doLogin() {
+// Perform login and navigate to the home page on success.
+// Disable the submit button while processing to prevent duplicates.
+async function doLogin() {
+  if (loading.value) return
+
   error.value = ''
+  const missingMsg = t('login.errorMissing')
   if (!username.value || !password.value) {
-    error.value = t('login.errorMissing')
+    error.value = missingMsg
+    ElMessage.error(missingMsg)
     usernameInput.value?.focus()
     return
   }
-  const ok = auth.login(username.value.trim(), password.value)
-  if (ok) {
-    router.push('/')
-  } else {
-    error.value = t('login.errorInvalid')
-    usernameInput.value?.focus()
+
+  loading.value = true
+  try {
+    const ok = auth.login(username.value.trim(), password.value)
+    if (ok) {
+      ElMessage.success(t('login.success') || '登录成功')
+      router.push('/')
+    } else {
+      const invalidMsg = t('login.errorInvalid') || '用户名或密码不正确'
+      error.value = invalidMsg
+      ElMessage.error(invalidMsg)
+      usernameInput.value?.focus()
+    }
+  } finally {
+    loading.value = false
   }
 }
 </script>
@@ -112,8 +137,7 @@ function doLogin() {
   margin-left: 12px;
   font-size: 14px;
 }
-.error {
-  color: #f56c6c;
-  margin-top: 8px;
+.mt-2 {
+  margin-top: 12px;
 }
 </style>
