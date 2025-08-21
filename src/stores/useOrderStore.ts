@@ -43,7 +43,7 @@ export const useOrderStore = defineStore('orders', {
     add(data: Omit<Order, 'id' | 'createdAt' | 'synced'>) {
       const order: Order = {
         id: this.nextId++,
-        createdAt: new Date().toISOString(),
+        createdAt: new Date().toLocaleString(),
         synced: false,
         ...data
       }
