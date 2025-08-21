@@ -9,8 +9,9 @@ export interface Order {
   assignee?: string
   status: '新建' | '处理中' | '已完成'
   startDate?: string
-  endDate?: string
+  clearTime?: string
   description?: string
+  emergencyMethod?: string
   createdAt: string
   synced: boolean
 }
