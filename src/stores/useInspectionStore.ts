@@ -1,93 +1,146 @@
 import { defineStore } from 'pinia'
 
-/**
- * Description of an inspection record. Inspections represent routine
- * checks performed in the data centre. For now the structure is simple
- * and can be extended as the application grows.
- */
+export interface InspectionItem {
+  id: number
+  content: string
+  status: '正常' | '异常'
+}
+
 export interface Inspection {
   id: number
   title: string
-  /** Optional notes about the inspection. */
-  notes?: string
-  /** ISO timestamp indicating when the inspection is scheduled. */
+  /** 巡检人（旧数据可能没有） */
+  inspector?: string
+  /** ISO 日期或日期字符串，如 2025-08-21 */
   date: string
-  /** Whether the inspection has been synchronised with the backend. */
+  /** 备注（旧数据可能没有） */
+  notes?: string
+  /** 巡检项明细（旧数据可能没有） */
+  items: InspectionItem[]
+  /** 异常项数量（会根据 items 自动计算） */
+  abnormal: number
+  /** 与后端同步标记（旧数据默认 false） */
   synced: boolean
 }
 
-/**
- * Pinia store for managing inspections. Inspections are persisted to
- * localStorage under the key `idc-inspections`. All CRUD operations keep
- * the localStorage representation in sync. Basic error handling ensures
- * that storage failures do not crash the application.
- */
+const STORAGE_KEY = 'idc-inspections'
+
+function computeAbnormal(items: InspectionItem[] | undefined): number {
+  if (!Array.isArray(items)) return 0
+  return items.filter(i => i?.status === '异常').length
+}
+
 export const useInspectionStore = defineStore('inspections', {
   state: () => ({
-    /** List of all inspections. */
     list: [] as Inspection[],
-    /** Next identifier for a new inspection. */
     nextId: 1
   }),
   actions: {
-    /**
-     * Load persisted inspections from localStorage. Call during
-     * application start-up.
-     */
     load() {
       try {
-        const raw = localStorage.getItem('idc-inspections')
-        if (raw) {
-          this.list = JSON.parse(raw) as Inspection[]
-          const max = this.list.reduce((acc, i) => Math.max(acc, i.id), 0)
-          this.nextId = max + 1
+        const raw = localStorage.getItem(STORAGE_KEY)
+        if (!raw) {
+          // 没有数据则不做种子；如需演示数据可自行添加
+          this.list = []
+          this.nextId = 1
+          return
         }
+
+        const parsed = JSON.parse(raw) as any[]
+        let migrated = false
+
+        this.list = (Array.isArray(parsed) ? parsed : []).map((o: any, idx) => {
+          const items: InspectionItem[] = Array.isArray(o?.items)
+            ? o.items.map((it: any, k: number) => ({
+                id: typeof it?.id === 'number' ? it.id : k + 1,
+                content: String(it?.content ?? ''),
+                status: it?.status === '异常' ? '异常' : '正常'
+              }))
+            : []
+
+          const abnormal =
+            typeof o?.abnormal === 'number' ? o.abnormal : computeAbnormal(items)
+
+          const migratedObj: Inspection = {
+            id: typeof o?.id === 'number' ? o.id : idx + 1,
+            title: String(o?.title ?? ''),
+            inspector: o?.inspector ? String(o.inspector) : undefined,
+            date: String(o?.date ?? ''),
+            notes: o?.notes ? String(o.notes) : undefined,
+            items,
+            abnormal,
+            synced: Boolean(o?.synced)
+          }
+
+          // 触发迁移标记的条件
+          if (
+            o?.abnormal !== abnormal ||
+            !Array.isArray(o?.items) ||
+            typeof o?.synced !== 'boolean'
+          ) {
+            migrated = true
+          }
+
+          return migratedObj
+        })
+
+        const max = this.list.reduce((acc, i) => Math.max(acc, i.id), 0)
+        this.nextId = max + 1
+
+        if (migrated) this.save()
       } catch (err) {
         console.error('Failed to load inspections', err)
         this.list = []
         this.nextId = 1
       }
     },
-    /**
-     * Persist the current inspection list to localStorage.
-     */
+
     save() {
       try {
-        localStorage.setItem('idc-inspections', JSON.stringify(this.list))
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.list))
       } catch (err) {
         console.error('Failed to save inspections', err)
       }
     },
-    /**
-     * Add a new inspection. The id and synced flag are populated
-     * automatically.
-     */
-    add(data: Omit<Inspection, 'id' | 'synced'>) {
+
+    /** 新增巡检，items 可缺省，abnormal 会自动计算 */
+    add(data: Omit<Inspection, 'id' | 'abnormal' | 'synced'>) {
+      const items = Array.isArray(data.items) ? data.items : []
       const inspection: Inspection = {
         id: this.nextId++,
-        synced: false,
-        ...data
+        title: data.title,
+        inspector: data.inspector,
+        date: data.date,
+        notes: data.notes,
+        items,
+        abnormal: computeAbnormal(items),
+        synced: false
       }
       this.list.push(inspection)
       this.save()
     },
-    /**
-     * Update an existing inspection by id. If no inspection is found the
-     * call is silently ignored.
-     */
+
+    /** 更新巡检；若传入了 items 会自动重算 abnormal */
     update(id: number, data: Partial<Inspection>) {
       const idx = this.list.findIndex(i => i.id === id)
-      if (idx !== -1) {
-        this.list[idx] = { ...this.list[idx], ...data }
-        this.save()
+      if (idx === -1) return
+      const merged: Inspection = { ...this.list[idx], ...data }
+      if (data.items) {
+        merged.abnormal = computeAbnormal(data.items)
       }
+      this.list[idx] = merged
+      this.save()
     },
-    /**
-     * Remove an inspection by id.
-     */
+
+    /** 删除巡检 */
     remove(id: number) {
       this.list = this.list.filter(i => i.id !== id)
       this.save()
+    },
+
+    /** 按 id 获取 */
+    getById(id: number) {
+      return this.list.find(i => i.id === id)
     }
   }
 })
