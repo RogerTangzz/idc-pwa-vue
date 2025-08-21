@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 
-/** 借/还日志 */
+/** 借/还日志（统一版） */
 export interface AssetLog {
   action: '借用' | '归还'
   userId: string
@@ -23,17 +23,43 @@ export interface Asset {
 
 const STORAGE_KEY = 'idc-assets'
 
-/** 兼容旧分支状态映射：在库→可用，借用中→借用，维修→维修中 */
+/** 兼容旧分支状态映射：
+ * - 在库/available → 可用
+ * - 借用中/borrowed → 借用
+ * - 维修/维修中 → 维修中
+ */
 function normalizeStatus(s: any): Asset['status'] {
   const map: Record<string, Asset['status']> = {
     '在库': '可用',
+    'available': '可用',
     '借用中': '借用',
+    'borrowed': '借用',
     '维修': '维修中',
+    '维修中': '维修中',
     '可用': '可用',
-    '借用': '借用',
-    '维修中': '维修中'
+    '借用': '借用'
   }
   return map[String(s)] ?? '可用'
+}
+
+/** 迁移旧日志到统一版：
+ *  - { action:'borrow'|'return', user, date } → { '借用'|'归还', userId, time }
+ *  - 其他类型（如 'add'）忽略
+ */
+function normalizeLogs(arr: any[]): AssetLog[] {
+  if (!Array.isArray(arr)) return []
+  const out: AssetLog[] = []
+  for (const l of arr) {
+    const a = String(l?.action ?? '')
+    if (a === 'borrow') {
+      out.push({ action: '借用', userId: String(l?.user ?? ''), time: String(l?.date ?? new Date().toISOString()) })
+    } else if (a === 'return') {
+      out.push({ action: '归还', userId: String(l?.user ?? ''), time: String(l?.date ?? new Date().toISOString()) })
+    } else if (a === '借用' || a === '归还') {
+      out.push({ action: a as '借用' | '归还', userId: String(l?.userId ?? ''), time: String(l?.time ?? new Date().toISOString()) })
+    }
+  }
+  return out
 }
 
 /** 迁移/规整任意对象为统一版 Asset */
@@ -45,14 +71,19 @@ function normalizeAsset(o: any, fallbackId: number): Asset {
     location: o?.location ? String(o.location) : undefined,
     status: normalizeStatus(o?.status),
     remark: o?.remark ? String(o.remark) : undefined,
-    borrowerId: o?.borrowerId ? String(o.borrowerId) : undefined,
-    borrowTime: o?.borrowTime ? String(o.borrowTime) : undefined,
-    returnTime: o?.returnTime ? String(o.returnTime) : undefined,
-    logs: Array.isArray(o?.logs) ? o.logs.map((l: any) => ({
-      action: l?.action === '归还' ? '归还' : '借用',
-      userId: String(l?.userId ?? ''),
-      time: String(l?.time ?? new Date().toISOString())
-    })) : []
+
+    // 兼容字段：borrower/borrowedAt/returnedAt → borrowerId/borrowTime/returnTime
+    borrowerId: o?.borrowerId
+      ? String(o.borrowerId)
+      : (o?.borrower ? String(o.borrower) : undefined),
+    borrowTime: o?.borrowTime
+      ? String(o.borrowTime)
+      : (o?.borrowedAt ? String(o.borrowedAt) : undefined),
+    returnTime: o?.returnTime
+      ? String(o.returnTime)
+      : (o?.returnedAt ? String(o.returnedAt) : undefined),
+
+    logs: normalizeLogs(o?.logs)
   }
   return a
 }
@@ -97,13 +128,15 @@ export const useAssetStore = defineStore('assets', {
 
     /** 新增资产（status 未传则默认为可用） */
     add(data: Omit<Asset, 'id' | 'logs'>) {
+      const normalized = normalizeAsset(data, 0)
       const asset: Asset = {
         id: this.nextId++,
         logs: [],
-        status: data.status ? normalizeStatus(data.status) : '可用',
+        // 以传入/迁移后的状态为准，默认可用
+        status: normalized.status ?? '可用',
         ...data,
-        // 规整一遍，确保字段类型与状态一致
-        ...normalizeAsset(data, 0),
+        // 再次规整，确保字段名一致
+        ...normalized,
         id: this.nextId - 1
       }
       this.list.push(asset)
@@ -116,7 +149,6 @@ export const useAssetStore = defineStore('assets', {
       if (idx === -1) return
       const merged = { ...this.list[idx], ...data }
       merged.status = normalizeStatus(merged.status)
-      // 不覆盖已有日志数组结构
       merged.logs = Array.isArray(merged.logs) ? merged.logs : this.list[idx].logs
       this.list[idx] = merged
       this.save()
