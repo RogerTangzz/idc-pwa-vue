@@ -40,6 +40,16 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/InspectionList.vue')
   },
   {
+    path: '/inspections/new',
+    name: 'InspectionNew',
+    component: () => import('@/views/InspectionForm.vue')
+  },
+  {
+    path: '/inspections/:id',
+    name: 'InspectionEdit',
+    component: () => import('@/views/InspectionForm.vue')
+  },
+  {
     path: '/assets',
     name: 'Assets',
     component: () => import('@/views/AssetList.vue')
