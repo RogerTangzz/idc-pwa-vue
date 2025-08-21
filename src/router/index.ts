@@ -20,7 +20,10 @@ const routes: RouteRecordRaw[] = [
   { path: '/inspections/:id(\\d+)', redirect: to => `/inspections/${to.params.id}/edit` },
 
   { path: '/assets', name: 'Assets', component: () => import('@/views/AssetList.vue') },
+
   { path: '/notifications', name: 'Notifications', component: () => import('@/views/NotificationList.vue') },
+  { path: '/notifications/stats', name: 'NotificationStats', component: () => import('@/views/NotificationStats.vue') },
+
   { path: '/knowledge', name: 'Knowledge', component: () => import('@/views/KnowledgeList.vue') },
   { path: '/messages', name: 'Messages', component: () => import('@/views/MessageList.vue') },
   { path: '/reports', name: 'Reports', component: () => import('@/views/ReportList.vue') },
