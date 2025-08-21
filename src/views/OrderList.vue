@@ -33,6 +33,7 @@
       <el-table-column prop="startDate" label="开始日期" />
       <el-table-column prop="endDate" label="结束日期" />
       <el-table-column prop="description" label="描述" />
+      <el-table-column prop="faultDescription" label="故障状况描述（含位置）" />
       <el-table-column label="操作" width="160">
         <template #default="scope">
           <el-button size="small" @click="openDetails(scope.row)">详情</el-button>
@@ -71,6 +72,9 @@
         </el-form-item>
         <el-form-item label="结束日期">
           <el-date-picker v-model="newOrder.endDate" type="date" />
+        </el-form-item>
+        <el-form-item label="故障状况描述（含位置）">
+          <el-input type="textarea" v-model="newOrder.faultDescription" />
         </el-form-item>
         <el-form-item label="描述">
           <el-input type="textarea" v-model="newOrder.description" />
@@ -114,6 +118,9 @@
           <el-form-item label="结束日期">
             <el-date-picker v-model="selectedOrder.endDate" type="date" />
           </el-form-item>
+          <el-form-item label="故障状况描述（含位置）">
+            <el-input type="textarea" v-model="selectedOrder.faultDescription" />
+          </el-form-item>
           <el-form-item label="描述">
             <el-input type="textarea" v-model="selectedOrder.description" />
           </el-form-item>
@@ -152,7 +159,8 @@ const filteredOrders = computed(() => {
     items = items.filter(o => {
       return (
         o.title.toLowerCase().includes(kw) ||
-        (o.description && o.description.toLowerCase().includes(kw))
+        (o.description && o.description.toLowerCase().includes(kw)) ||
+        (o.faultDescription && o.faultDescription.toLowerCase().includes(kw))
       )
     })
   }
@@ -184,11 +192,12 @@ const newOrder = reactive<Omit<Order, 'id' | 'createdAt' | 'synced'>>({
   status: '新建',
   startDate: '',
   endDate: '',
+  faultDescription: '',
   description: ''
 })
 
 function openAdd() {
-  Object.assign(newOrder, { title: '', priority: '中', reporter: '', assignee: '', status: '新建', startDate: '', endDate: '', description: '' })
+  Object.assign(newOrder, { title: '', priority: '中', reporter: '', assignee: '', status: '新建', startDate: '', endDate: '', faultDescription: '', description: '' })
   addDialogVisible.value = true
 }
 
@@ -202,7 +211,8 @@ function addOrder() {
     status: newOrder.status,
     startDate: newOrder.startDate || undefined,
     endDate: newOrder.endDate || undefined,
-    description: newOrder.description || undefined
+    description: newOrder.description || undefined,
+    faultDescription: newOrder.faultDescription || undefined
   })
   addDialogVisible.value = false
 }
@@ -225,7 +235,8 @@ function updateOrder() {
       status: selectedOrder.value.status,
       startDate: selectedOrder.value.startDate,
       endDate: selectedOrder.value.endDate,
-      description: selectedOrder.value.description
+      description: selectedOrder.value.description,
+      faultDescription: selectedOrder.value.faultDescription
     })
   }
   detailDialogVisible.value = false
