@@ -55,8 +55,8 @@
       <el-table-column prop="startDate" label="开始日期" />
       <el-table-column prop="clearTime" label="设备故障排除时间" />
       <el-table-column prop="faultDescription" label="故障状况描述（含位置）" />
-      <!-- 如需单独展示“描述”列，可保留；若不想占列宽，可删掉这列，仅在标题下展示 -->
       <el-table-column prop="description" label="描述" />
+      <el-table-column prop="maintainerSignature" label="维修人签认" />
       <el-table-column label="操作" width="160">
         <template #default="scope">
           <el-button size="small" @click="openDetails(scope.row)">详情</el-button>
@@ -113,6 +113,9 @@
         <el-form-item label="描述">
           <el-input type="textarea" v-model="newOrder.description" />
         </el-form-item>
+        <el-form-item label="维修人签认">
+          <el-input v-model="newOrder.maintainerSignature" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="addDialogVisible = false">取消</el-button>
@@ -168,6 +171,9 @@
           </el-form-item>
           <el-form-item label="描述">
             <el-input type="textarea" v-model="selectedOrder.description" />
+          </el-form-item>
+          <el-form-item label="维修人签认">
+            <el-input v-model="selectedOrder.maintainerSignature" />
           </el-form-item>
         </el-form>
       </template>
@@ -240,7 +246,8 @@ const newOrder = reactive<Omit<Order, 'id' | 'createdAt' | 'synced'>>({
   clearTime: '',
   emergencyMethod: '',
   faultDescription: '',
-  description: ''
+  description: '',
+  maintainerSignature: ''
 })
 
 function openAdd() {
@@ -255,7 +262,8 @@ function openAdd() {
     clearTime: '',
     emergencyMethod: '',
     faultDescription: '',
-    description: ''
+    description: '',
+    maintainerSignature: ''
   })
   addDialogVisible.value = true
 }
@@ -273,7 +281,8 @@ function addOrder() {
     clearTime: newOrder.clearTime || undefined,
     emergencyMethod: newOrder.emergencyMethod || undefined,
     faultDescription: newOrder.faultDescription || undefined,
-    description: newOrder.description || undefined
+    description: newOrder.description || undefined,
+    maintainerSignature: newOrder.maintainerSignature || undefined
   })
   addDialogVisible.value = false
 }
@@ -299,7 +308,8 @@ function updateOrder() {
       clearTime: selectedOrder.value.clearTime,
       emergencyMethod: selectedOrder.value.emergencyMethod,
       faultDescription: selectedOrder.value.faultDescription,
-      description: selectedOrder.value.description
+      description: selectedOrder.value.description,
+      maintainerSignature: selectedOrder.value.maintainerSignature
     })
   }
   detailDialogVisible.value = false

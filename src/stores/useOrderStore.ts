@@ -13,6 +13,7 @@ export interface Order {
   description?: string
   emergencyMethod?: string
   faultDescription?: string
+  maintainerSignature?: string
   createdAt: string
   synced: boolean
 }
