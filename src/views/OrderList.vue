@@ -19,7 +19,7 @@
       </el-select>
       <el-input v-model="reporterFilter" placeholder="上报人搜索" clearable class="filter-item" />
       <el-date-picker v-model="startDateFilter" type="date" placeholder="开始日期" class="filter-item" />
-      <el-date-picker v-model="endDateFilter" type="date" placeholder="结束日期" class="filter-item" />
+      <el-date-picker v-model="clearTimeFilter" type="date" placeholder="设备故障排除时间" class="filter-item" />
       <el-button size="default" @click="resetFilters">重置</el-button>
     </div>
     <!-- Orders table -->
@@ -31,7 +31,7 @@
       <el-table-column prop="assignee" label="处理人" />
       <el-table-column prop="status" label="状态" width="90" />
       <el-table-column prop="startDate" label="开始日期" />
-      <el-table-column prop="endDate" label="结束日期" />
+      <el-table-column prop="clearTime" label="设备故障排除时间" />
       <el-table-column prop="description" label="描述" />
       <el-table-column label="操作" width="160">
         <template #default="scope">
@@ -69,8 +69,11 @@
         <el-form-item label="开始日期">
           <el-date-picker v-model="newOrder.startDate" type="date" />
         </el-form-item>
-        <el-form-item label="结束日期">
-          <el-date-picker v-model="newOrder.endDate" type="date" />
+        <el-form-item label="设备故障排除时间">
+          <el-date-picker v-model="newOrder.clearTime" type="date" />
+        </el-form-item>
+        <el-form-item label="应急处置方法">
+          <el-input type="textarea" v-model="newOrder.emergencyMethod" />
         </el-form-item>
         <el-form-item label="描述">
           <el-input type="textarea" v-model="newOrder.description" />
@@ -111,8 +114,11 @@
           <el-form-item label="开始日期">
             <el-date-picker v-model="selectedOrder.startDate" type="date" />
           </el-form-item>
-          <el-form-item label="结束日期">
-            <el-date-picker v-model="selectedOrder.endDate" type="date" />
+          <el-form-item label="设备故障排除时间">
+            <el-date-picker v-model="selectedOrder.clearTime" type="date" />
+          </el-form-item>
+          <el-form-item label="应急处置方法">
+            <el-input type="textarea" v-model="selectedOrder.emergencyMethod" />
           </el-form-item>
           <el-form-item label="描述">
             <el-input type="textarea" v-model="selectedOrder.description" />
@@ -143,7 +149,7 @@ const statusFilter = ref('')
 const priorityFilter = ref('')
 const reporterFilter = ref('')
 const startDateFilter = ref<string | null>(null)
-const endDateFilter = ref<string | null>(null)
+const clearTimeFilter = ref<string | null>(null)
 
 const filteredOrders = computed(() => {
   let items = [...store.list]
@@ -169,8 +175,8 @@ const filteredOrders = computed(() => {
   if (startDateFilter.value) {
     items = items.filter(o => o.startDate && o.startDate >= startDateFilter.value)
   }
-  if (endDateFilter.value) {
-    items = items.filter(o => o.endDate && o.endDate <= endDateFilter.value)
+  if (clearTimeFilter.value) {
+    items = items.filter(o => o.clearTime && o.clearTime <= clearTimeFilter.value)
   }
   return items
 })
@@ -183,12 +189,13 @@ const newOrder = reactive<Omit<Order, 'id' | 'createdAt' | 'synced'>>({
   assignee: '',
   status: '新建',
   startDate: '',
-  endDate: '',
+  clearTime: '',
+  emergencyMethod: '',
   description: ''
 })
 
 function openAdd() {
-  Object.assign(newOrder, { title: '', priority: '中', reporter: '', assignee: '', status: '新建', startDate: '', endDate: '', description: '' })
+  Object.assign(newOrder, { title: '', priority: '中', reporter: '', assignee: '', status: '新建', startDate: '', clearTime: '', emergencyMethod: '', description: '' })
   addDialogVisible.value = true
 }
 
@@ -201,7 +208,8 @@ function addOrder() {
     assignee: newOrder.assignee || undefined,
     status: newOrder.status,
     startDate: newOrder.startDate || undefined,
-    endDate: newOrder.endDate || undefined,
+    clearTime: newOrder.clearTime || undefined,
+    emergencyMethod: newOrder.emergencyMethod || undefined,
     description: newOrder.description || undefined
   })
   addDialogVisible.value = false
@@ -224,7 +232,8 @@ function updateOrder() {
       assignee: selectedOrder.value.assignee,
       status: selectedOrder.value.status,
       startDate: selectedOrder.value.startDate,
-      endDate: selectedOrder.value.endDate,
+      clearTime: selectedOrder.value.clearTime,
+      emergencyMethod: selectedOrder.value.emergencyMethod,
       description: selectedOrder.value.description
     })
   }
@@ -241,7 +250,7 @@ function resetFilters() {
   priorityFilter.value = ''
   reporterFilter.value = ''
   startDateFilter.value = null
-  endDateFilter.value = null
+  clearTimeFilter.value = null
 }
 </script>
 
