@@ -20,6 +20,7 @@
     "decimal.js": "10.6.0"
   },
   "devDependencies": {
+    "@fastify/pre-commit": "^2.2.0",
     "@vitejs/plugin-vue": "^6.0.0",
     "@vue/test-utils": "^2.4.6",
     "@vue/tsconfig": "^0.7.0",
