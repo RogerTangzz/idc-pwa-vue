@@ -12,13 +12,13 @@ export interface Order {
   clearTime?: string
   description?: string
   emergencyMethod?: string
+  faultDescription?: string
   createdAt: string
   synced: boolean
 }
 
 /**
- * Store managing work orders (工单).  Orders behave similarly to tasks
- * but include additional fields such as priority, reporter and assignee.
+ * Store managing work orders (工单).
  */
 export const useOrderStore = defineStore('orders', {
   state: () => ({
@@ -30,9 +30,22 @@ export const useOrderStore = defineStore('orders', {
       const raw = localStorage.getItem('idc-orders')
       if (raw) {
         try {
-          this.list = JSON.parse(raw)
+          const parsed = JSON.parse(raw) as any[]
+          let migrated = false
+          this.list = (parsed || []).map((o: any) => {
+            // 兼容旧数据：endDate -> clearTime
+            if (o && typeof o === 'object') {
+              if (o.endDate && !o.clearTime) {
+                o.clearTime = o.endDate
+                delete o.endDate
+                migrated = true
+              }
+            }
+            return o as Order
+          })
           const max = this.list.reduce((acc, o) => Math.max(acc, o.id), 0)
           this.nextId = max + 1
+          if (migrated) this.save()
         } catch {
           this.list = []
           this.nextId = 1

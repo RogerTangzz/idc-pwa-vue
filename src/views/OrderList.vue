@@ -54,8 +54,9 @@
       <el-table-column prop="status" label="状态" width="90" />
       <el-table-column prop="startDate" label="开始日期" />
       <el-table-column prop="clearTime" label="设备故障排除时间" />
-      <!-- 如需单独展示“描述”列，可取消下一行注释 -->
-      <!-- <el-table-column prop="description" label="描述" /> -->
+      <el-table-column prop="faultDescription" label="故障状况描述（含位置）" />
+      <!-- 如需单独展示“描述”列，可保留；若不想占列宽，可删掉这列，仅在标题下展示 -->
+      <el-table-column prop="description" label="描述" />
       <el-table-column label="操作" width="160">
         <template #default="scope">
           <el-button size="small" @click="openDetails(scope.row)">详情</el-button>
@@ -105,6 +106,9 @@
         </el-form-item>
         <el-form-item label="应急处置方法">
           <el-input type="textarea" v-model="newOrder.emergencyMethod" />
+        </el-form-item>
+        <el-form-item label="故障状况描述（含位置）">
+          <el-input type="textarea" v-model="newOrder.faultDescription" />
         </el-form-item>
         <el-form-item label="描述">
           <el-input type="textarea" v-model="newOrder.description" />
@@ -159,6 +163,9 @@
           <el-form-item label="应急处置方法">
             <el-input type="textarea" v-model="selectedOrder.emergencyMethod" />
           </el-form-item>
+          <el-form-item label="故障状况描述（含位置）">
+            <el-input type="textarea" v-model="selectedOrder.faultDescription" />
+          </el-form-item>
           <el-form-item label="描述">
             <el-input type="textarea" v-model="selectedOrder.description" />
           </el-form-item>
@@ -197,7 +204,8 @@ const filteredOrders = computed(() => {
     items = items.filter(o => {
       return (
         o.title.toLowerCase().includes(kw) ||
-        (o.description && o.description.toLowerCase().includes(kw))
+        (o.description && o.description.toLowerCase().includes(kw)) ||
+        (o.faultDescription && o.faultDescription.toLowerCase().includes(kw))
       )
     })
   }
@@ -221,4 +229,113 @@ const filteredOrders = computed(() => {
 })
 
 const addDialogVisible = ref(false)
-const newOrder = reactive<Omit<Or
+const newOrder = reactive<Omit<Order, 'id' | 'createdAt' | 'synced'>>({
+  title: '',
+  priority: '中',
+  reporter: '',
+  specialty: '暖通',
+  assignee: '',
+  status: '新建',
+  startDate: '',
+  clearTime: '',
+  emergencyMethod: '',
+  faultDescription: '',
+  description: ''
+})
+
+function openAdd() {
+  Object.assign(newOrder, {
+    title: '',
+    priority: '中',
+    reporter: '',
+    specialty: '暖通',
+    assignee: '',
+    status: '新建',
+    startDate: '',
+    clearTime: '',
+    emergencyMethod: '',
+    faultDescription: '',
+    description: ''
+  })
+  addDialogVisible.value = true
+}
+
+function addOrder() {
+  if (!newOrder.title || !newOrder.reporter) return
+  store.add({
+    title: newOrder.title,
+    priority: newOrder.priority,
+    reporter: newOrder.reporter,
+    specialty: newOrder.specialty,
+    assignee: newOrder.assignee || undefined,
+    status: newOrder.status,
+    startDate: newOrder.startDate || undefined,
+    clearTime: newOrder.clearTime || undefined,
+    emergencyMethod: newOrder.emergencyMethod || undefined,
+    faultDescription: newOrder.faultDescription || undefined,
+    description: newOrder.description || undefined
+  })
+  addDialogVisible.value = false
+}
+
+const detailDialogVisible = ref(false)
+const selectedOrder = ref<Order | null>(null)
+
+function openDetails(order: Order) {
+  selectedOrder.value = { ...order }
+  detailDialogVisible.value = true
+}
+
+function updateOrder() {
+  if (selectedOrder.value) {
+    store.update(selectedOrder.value.id, {
+      title: selectedOrder.value.title,
+      priority: selectedOrder.value.priority,
+      reporter: selectedOrder.value.reporter,
+      specialty: selectedOrder.value.specialty,
+      assignee: selectedOrder.value.assignee,
+      status: selectedOrder.value.status,
+      startDate: selectedOrder.value.startDate,
+      clearTime: selectedOrder.value.clearTime,
+      emergencyMethod: selectedOrder.value.emergencyMethod,
+      faultDescription: selectedOrder.value.faultDescription,
+      description: selectedOrder.value.description
+    })
+  }
+  detailDialogVisible.value = false
+}
+
+function remove(id: number) {
+  store.remove(id)
+}
+
+function resetFilters() {
+  keyword.value = ''
+  statusFilter.value = ''
+  priorityFilter.value = ''
+  reporterFilter.value = ''
+  startDateFilter.value = null
+  clearTimeFilter.value = null
+}
+</script>
+
+<style scoped>
+h2 {
+  margin-bottom: 16px;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.filter-item {
+  min-width: 140px;
+  flex: 1;
+}
+.description {
+  margin-top: 4px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+</style>
