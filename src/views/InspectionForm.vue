@@ -3,13 +3,19 @@
     <h2>{{ isEdit ? '编辑巡检' : '新建巡检' }}</h2>
 
     <!-- 基本信息 -->
-    <el-form :model="meta" label-width="80px" @submit.prevent>
+    <el-form :model="meta" label-width="100px" @submit.prevent>
       <el-form-item label="标题">
         <el-input v-model="meta.title" placeholder="例如：8月例行巡检" />
       </el-form-item>
+
       <el-form-item label="巡检人">
         <el-input v-model="meta.inspector" placeholder="巡检人姓名" />
       </el-form-item>
+
+      <el-form-item label="接力人">
+        <el-input v-model="meta.relayInspector" placeholder="接力/复核人员（可选）" />
+      </el-form-item>
+
       <el-form-item label="日期">
         <el-date-picker
           v-model="meta.date"
@@ -18,6 +24,7 @@
           placeholder="选择日期"
         />
       </el-form-item>
+
       <el-form-item label="备注">
         <el-input v-model="meta.notes" type="textarea" placeholder="可选" />
       </el-form-item>
@@ -84,7 +91,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, computed, onMounted } from 'vue'
+import { reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useInspectionStore, type Inspection, type InspectionItem } from '@/stores/useInspectionStore'
@@ -121,15 +128,16 @@ function makeTemplate(): Record<string, InspectionItem[]> {
 }
 
 // -------- UI State --------
-const meta = reactive<{ title: string; inspector?: string; date: string; notes?: string }>({
+const meta = reactive<{ title: string; inspector?: string; relayInspector?: string; date: string; notes?: string }>({
   title: '',
   inspector: '',
+  relayInspector: '',
   date: '',
   notes: ''
 })
 const sections = reactive<Record<string, InspectionItem[]>>(makeTemplate())
 
-// 编辑计数（仅用于页面显示；持久化由 store 负责重算）
+// 仅用于页面显示；持久化由 store 重算
 const abnormalCount = computed(() =>
   Object.values(sections).flat().filter(i => i.status === '异常').length
 )
@@ -146,6 +154,7 @@ onMounted(() => {
     // 元信息
     meta.title = rec.title
     meta.inspector = rec.inspector
+    meta.relayInspector = rec.relayInspector
     meta.date = rec.date
     meta.notes = rec.notes
 
@@ -154,8 +163,7 @@ onMounted(() => {
     rec.items.forEach((it) => {
       const key = it.section || '默认'
       if (!grouped[key]) grouped[key] = []
-      // 深拷贝保证编辑不直接污染 store
-      grouped[key].push({ ...it })
+      grouped[key].push({ ...it }) // 深拷贝，避免直接改 store
     })
     // 用分组替换模板
     Object.keys(sections).forEach(k => delete sections[k])
@@ -163,7 +171,7 @@ onMounted(() => {
   }
 })
 
-// 扁平化为 items[]，并补齐 section 字段与 id
+// 扁平化为 items[]，并补齐 section 与 id
 function toFlatItems(): InspectionItem[] {
   const flat: InspectionItem[] = []
   let nextItemId =
@@ -202,6 +210,7 @@ function onSubmit() {
   const payload = {
     title: meta.title.trim(),
     inspector: meta.inspector?.trim() || undefined,
+    relayInspector: meta.relayInspector?.trim() || undefined,
     date: normDate(meta.date),
     notes: meta.notes?.trim() || undefined,
     items: toFlatItems()

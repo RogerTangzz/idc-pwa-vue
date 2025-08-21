@@ -5,14 +5,19 @@ const routes: RouteRecordRaw[] = [
   { path: '/login', name: 'Login', component: () => import('@/views/LoginView.vue') },
   { path: '/register', name: 'Register', component: () => import('@/views/RegisterView.vue') },
   { path: '/', name: 'Home', component: () => import('@/views/HomeView.vue') },
+
+  // Both branches
+  { path: '/tasks', name: 'Tasks', component: () => import('@/views/TaskList.vue') },
   { path: '/maintenance-plans', name: 'MaintenancePlans', component: () => import('@/views/MaintenancePlanList.vue') },
   { path: '/orders', name: 'Orders', component: () => import('@/views/OrderList.vue') },
   { path: '/servers', name: 'Servers', component: () => import('@/views/ServerList.vue') },
-  { path: '/inspections', name: 'Inspections', component: () => import('@/views/InspectionList.vue') },
 
-  // Keep static route before the dynamic one to avoid matching issues.
+  { path: '/inspections', name: 'Inspections', component: () => import('@/views/InspectionList.vue') },
+  // Keep static before dynamic
   { path: '/inspections/new', name: 'InspectionNew', component: () => import('@/views/InspectionForm.vue') },
   { path: '/inspections/:id(\\d+)/edit', name: 'InspectionEdit', component: () => import('@/views/InspectionForm.vue') },
+  // Backward compatibility for links like /inspections/123
+  { path: '/inspections/:id(\\d+)', redirect: to => `/inspections/${to.params.id}/edit` },
 
   { path: '/assets', name: 'Assets', component: () => import('@/views/AssetList.vue') },
   { path: '/notifications', name: 'Notifications', component: () => import('@/views/NotificationList.vue') },

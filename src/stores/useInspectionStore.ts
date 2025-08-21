@@ -12,18 +12,18 @@ export interface InspectionItem {
   humidity?: number | null    // “湿度”
   pressure?: number | null    // “压力”
   abnormalNote?: string    // “异常摘要”
-  section?: string         // 来自 codex 的 data 的分组 key
+  section?: string         // 分组 key（如楼层）
 }
 
-/** 规范的巡检记录（沿用 main 分支设计） */
+/** 统一版巡检记录 */
 export interface Inspection {
   id: number
   title: string
-  /** 巡检人（旧数据可能没有） */
+  /** 主检人（旧数据可能没有） */
   inspector?: string
-  /** 接班/复核巡检人（为兼容搜索 UI 新增） */
+  /** 接力/复核检人（兼容管理视图） */
   relayInspector?: string
-  /** ISO 日期或日期字符串，如 2025-08-21 / 2025-08-21T10:20:30Z */
+  /** ISO 日期或日期字符串，如 2025-08-21 或 2025-08-21T10:20:30Z */
   date: string
   /** 备注（旧数据可能没有） */
   notes?: string
@@ -35,7 +35,7 @@ export interface Inspection {
   synced: boolean
 }
 
-/** 仅用于迁移：codex 分支的旧数据形状（分组+物理量） */
+/** —— 旧数据形状：codex 分组 + 物理量 —— */
 type LegacyCodexItem = {
   项目: string
   内容: string
@@ -52,13 +52,13 @@ type LegacyCodexRecord = {
   abnormalCount: number
 }
 
-/** 仅用于迁移：极简搜索版对象（无 items，仅 remark 等） */
+/** —— 旧数据形状：极简管理视图（无 items，仅 remark 等） —— */
 type LegacySimpleRecord = {
   id: number
+  date: string
   inspector: string
   relayInspector?: string
   remark?: string
-  // 可能没有 date/title/items/abnormal/synced
 }
 
 const STORAGE_KEY = 'idc-inspections'
@@ -68,7 +68,7 @@ function computeAbnormal(items: InspectionItem[] | undefined): number {
   return items.filter(i => i?.status === '异常').length
 }
 
-/** 把 codex 分支的 record 迁移为规范 Inspection */
+/** codex → 统一版 */
 function fromLegacyCodex(o: LegacyCodexRecord, fallbackId: number): Inspection {
   const items: InspectionItem[] = []
   let itemId = 1
@@ -108,10 +108,10 @@ function fromLegacyCodex(o: LegacyCodexRecord, fallbackId: number): Inspection {
   }
 }
 
-/** 兜底把“看起来像 main/或极简搜索版”的对象规整为规范 Inspection */
+/** 规范化“近似 main”或“极简管理视图”的对象为统一版 */
 function normalizeLikeMain(o: any, fallbackId: number): Inspection {
-  // 极简搜索版（没有 items/abnormal/synced）
-  if (o && typeof o === 'object' && !Array.isArray(o.items) && o.inspector && (o.remark || o.relayInspector)) {
+  // 极简管理视图（无 items/abnormal/synced）
+  if (o && typeof o === 'object' && !Array.isArray(o.items) && o.inspector) {
     const id = typeof o?.id === 'number' ? o.id : fallbackId
     return {
       id,
@@ -126,13 +126,12 @@ function normalizeLikeMain(o: any, fallbackId: number): Inspection {
     }
   }
 
-  // 近似 main 的对象
+  // 接近 main 的对象
   const rawItems = Array.isArray(o?.items) ? o.items : []
   const items: InspectionItem[] = rawItems.map((it: any, idx: number) => ({
     id: typeof it?.id === 'number' ? it.id : idx + 1,
     content: String(it?.content ?? it?.内容 ?? it?.项目 ?? ''),
     status: it?.status === '异常' ? '异常' : '正常',
-    // 若源数据携带了扩展字段也一并接住
     name: it?.name ?? it?.项目,
     temperature: typeof it?.temperature === 'number' ? it.temperature : (typeof it?.温度 === 'number' ? it.温度 : null),
     humidity: typeof it?.humidity === 'number' ? it.humidity : (typeof it?.湿度 === 'number' ? it.湿度 : null),
@@ -176,12 +175,12 @@ export const useInspectionStore = defineStore('inspections', {
         let migrated = false
 
         this.list = (Array.isArray(parsed) ? parsed : []).map((o: any, idx) => {
-          // codex 分组版：存在 data（Record<string, LegacyCodexItem[]>）
+          // codex 分组版
           if (o && typeof o === 'object' && o.data && typeof o.data === 'object') {
             migrated = true
             return fromLegacyCodex(o as LegacyCodexRecord, idx + 1)
           }
-          // 其余按 main/极简搜索版 形状规整
+          // 其余：main/极简管理视图
           const before = JSON.stringify(o)
           const normalized = normalizeLikeMain(o as LegacySimpleRecord | any, idx + 1)
           const after = JSON.stringify(normalized)
@@ -248,13 +247,14 @@ export const useInspectionStore = defineStore('inspections', {
     },
 
     /**
-     * 过滤函数：兼容搜索 UI 的参数
+     * 过滤（对象式参数，推荐）
      * - inspector: 精确等值匹配
      * - relayInspector: 精确等值匹配
-     * - remark: 在 notes/title 中模糊包含（remark ~ notes 的别名）
+     * - remark: 在 notes/title 中模糊包含（remark 作为 notes 的别名）
      * - keyword: 在 title/inspector/relayInspector/notes 中模糊包含
+     * - date: 起始匹配（'YYYY-MM-DD'），与 keyword 可叠加
      */
-    filter(params: { inspector?: string; relayInspector?: string; remark?: string; keyword?: string }) {
+    filter(params: { inspector?: string; relayInspector?: string; remark?: string; keyword?: string; date?: string }) {
       let items = [...this.list]
       const eq = (a?: string, b?: string) => (a ?? '') === (b ?? '')
 
@@ -279,11 +279,37 @@ export const useInspectionStore = defineStore('inspections', {
           (i.notes && i.notes.includes(kw))
         )
       }
+      if (params.date && params.date.trim()) {
+        const d = params.date.trim()
+        items = items.filter(i => (i.date || '').startsWith(d))
+      }
       return items
     },
 
     /**
-     * 兼容原分支的异步获取接口：这里等价于 load()
+     * 兼容旧方法：filterByKeywordDate(keyword, date?)
+     * - keyword: 不区分大小写，在 inspector/relayInspector/notes/title 中模糊匹配
+     * - date:   'YYYY-MM-DD' 前缀匹配
+     */
+    filterByKeywordDate(keyword: string, date?: string) {
+      const kw = (keyword ?? '').trim().toLowerCase()
+      let items = [...this.list]
+      if (kw) {
+        items = items.filter(i =>
+          (i.inspector && i.inspector.toLowerCase().includes(kw)) ||
+          (i.relayInspector && i.relayInspector.toLowerCase().includes(kw)) ||
+          (i.notes && i.notes.toLowerCase().includes(kw)) ||
+          (i.title && i.title.toLowerCase().includes(kw))
+        )
+      }
+      if (date && date.trim()) {
+        items = items.filter(i => (i.date || '').startsWith(date.trim()))
+      }
+      return items
+    },
+
+    /**
+     * 兼容分支的异步获取接口：这里等价于 load()
      * 如需演示数据，可传入 seedIfEmpty=true 自动注入示例数据。
      */
     async fetchInspections(seedIfEmpty = false) {
