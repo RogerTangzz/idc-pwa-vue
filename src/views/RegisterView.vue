@@ -27,10 +27,14 @@
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="doRegister">注册</el-button>
+          <el-button
+            type="primary"
+            :loading="loading"
+            :disabled="loading"
+            @click="doRegister"
+          >注册</el-button>
           <router-link to="/login" class="link">返回登录</router-link>
         </el-form-item>
-        <div v-if="error" class="error">{{ error }}</div>
       </el-form>
     </el-card>
   </div>
@@ -39,33 +43,38 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/useAuthStore'
 
 const username = ref('')
 const password = ref('')
 const confirm = ref('')
 const role = ref('管理员')
-const error = ref('')
+const loading = ref(false)
 
 const auth = useAuthStore()
 auth.load()
 const router = useRouter()
 
-function doRegister() {
-  error.value = ''
+async function doRegister() {
+  if (loading.value) return
   if (!username.value || !password.value || !confirm.value) {
-    error.value = '请填写所有字段'
+    ElMessage.error('请填写所有字段')
     return
   }
   if (password.value !== confirm.value) {
-    error.value = '两次密码输入不一致'
+    ElMessage.error('两次密码输入不一致')
     return
   }
+  loading.value = true
   try {
     auth.register(username.value.trim(), password.value, role.value)
+    ElMessage.success('注册成功')
     router.push('/')
   } catch (e) {
-    error.value = (e as Error).message || '注册失败'
+    ElMessage.error((e as Error).message || '注册失败')
+  } finally {
+    loading.value = false
   }
 }
 </script>
@@ -89,9 +98,5 @@ function doRegister() {
 .link {
   margin-left: 12px;
   font-size: 14px;
-}
-.error {
-  color: #f56c6c;
-  margin-top: 8px;
 }
 </style>

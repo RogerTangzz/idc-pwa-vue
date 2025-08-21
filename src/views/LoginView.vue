@@ -17,10 +17,14 @@
           <el-input v-model="password" type="password" autocomplete="current-password" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="doLogin">登录</el-button>
+          <el-button
+            type="primary"
+            :loading="loading"
+            :disabled="loading"
+            @click="doLogin"
+          >登录</el-button>
           <router-link to="/register" class="link">注册新账号</router-link>
         </el-form-item>
-        <div v-if="error" class="error">{{ error }}</div>
       </el-form>
     </el-card>
   </div>
@@ -29,12 +33,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/useAuthStore'
 
 // Reactive form fields
 const username = ref('')
 const password = ref('')
-const error = ref('')
+const loading = ref(false)
 
 // Access the auth store and router.  Ensure persisted users are loaded
 // before attempting to authenticate.  When the component is created
@@ -44,20 +49,24 @@ const auth = useAuthStore()
 auth.load()
 const router = useRouter()
 
-// Perform login and navigate to the home page on success.  On
-// failure the error message is displayed beneath the form.
-function doLogin() {
-  error.value = ''
+// Perform login and navigate to the home page on success.  Show an
+// Element Plus message for success or failure.  Disable the submit
+// button while processing to prevent duplicate submissions.
+async function doLogin() {
+  if (loading.value) return
   if (!username.value || !password.value) {
-    error.value = '请输入用户名和密码'
+    ElMessage.error('请输入用户名和密码')
     return
   }
+  loading.value = true
   const ok = auth.login(username.value.trim(), password.value)
   if (ok) {
+    ElMessage.success('登录成功')
     router.push('/')
   } else {
-    error.value = '用户名或密码不正确'
+    ElMessage.error('用户名或密码不正确')
   }
+  loading.value = false
 }
 </script>
 
@@ -80,9 +89,5 @@ function doLogin() {
 .link {
   margin-left: 12px;
   font-size: 14px;
-}
-.error {
-  color: #f56c6c;
-  margin-top: 8px;
 }
 </style>
