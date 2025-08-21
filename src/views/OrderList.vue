@@ -25,14 +25,20 @@
     <!-- Orders table -->
     <el-table :data="filteredOrders" stripe style="width: 100%">
       <el-table-column prop="id" label="ID" width="60" />
-      <el-table-column prop="title" label="标题" />
+      <el-table-column prop="title" label="标题">
+        <template #default="scope">
+          <div>
+            <div>{{ scope.row.title }}</div>
+            <div v-if="scope.row.description" class="description">{{ scope.row.description }}</div>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column prop="priority" label="优先级" width="80" />
       <el-table-column prop="reporter" label="上报人" />
       <el-table-column prop="assignee" label="处理人" />
       <el-table-column prop="status" label="状态" width="90" />
       <el-table-column prop="startDate" label="开始日期" />
       <el-table-column prop="endDate" label="结束日期" />
-      <el-table-column prop="description" label="描述" />
       <el-table-column label="操作" width="160">
         <template #default="scope">
           <el-button size="small" @click="openDetails(scope.row)">详情</el-button>
@@ -258,5 +264,11 @@ h2 {
 .filter-item {
   min-width: 140px;
   flex: 1;
+}
+
+.description {
+  margin-top: 4px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 </style>
