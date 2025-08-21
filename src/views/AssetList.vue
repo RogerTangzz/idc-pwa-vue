@@ -149,4 +149,36 @@ function submit() {
   }
   if (dialogMode.value === 'add') {
     store.add({ ...current })
-  } else if (editingId.value !== n
+  } else if (editingId.value !== null) {
+    store.update(editingId.value, { ...current })
+  } else {
+    store.add({ ...current })
+  }
+  dialogVisible.value = false
+}
+
+const historyVisible = ref(false)
+const currentLogs = ref<Asset['logs']>([])
+
+function openHistory(asset: Asset) {
+  currentLogs.value = asset.logs
+  historyVisible.value = true
+}
+
+function borrow(asset: Asset) {
+  ElMessageBox.prompt('请输入借用人', '借出资产', {
+    confirmButtonText: '确认',
+    cancelButtonText: '取消'
+  })
+    .then(({ value }) => {
+      if (value && value.trim()) {
+        store.borrow(asset.id, value.trim())
+        ElMessage.success('已借出')
+      } else {
+        ElMessage.error('借用人不能为空')
+      }
+    })
+    .catch(() => {})
+}
+
+</script>
