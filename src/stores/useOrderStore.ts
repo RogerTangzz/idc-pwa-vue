@@ -10,6 +10,7 @@ export interface Order {
   startDate?: string
   endDate?: string
   description?: string
+  attachments?: string[]
   createdAt: string
   synced: boolean
 }
@@ -46,6 +47,9 @@ export const useOrderStore = defineStore('orders', {
         createdAt: new Date().toISOString(),
         synced: false,
         ...data
+      }
+      if (!order.attachments) {
+        order.attachments = []
       }
       this.list.push(order)
       this.save()

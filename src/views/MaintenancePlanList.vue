@@ -59,6 +59,18 @@
       <el-table-column prop="recurrence" label="周期" width="80" />
       <el-table-column prop="createdAt" label="创建时间" />
       <el-table-column prop="description" label="描述" />
+      <el-table-column label="附件" width="120">
+        <template #default="scope">
+          <el-link
+            v-for="(a, i) in scope.row.attachments"
+            :key="i"
+            :href="a"
+            target="_blank"
+            class="mr-1"
+            >附件{{ i + 1 }}</el-link
+          >
+        </template>
+      </el-table-column>
       <el-table-column label="操作" width="160">
         <template #default="scope">
           <el-button size="small" @click="openDetails(scope.row)">详情</el-button>
@@ -98,6 +110,26 @@
         </el-form-item>
         <el-form-item label="描述">
           <el-input type="textarea" v-model="newTask.description" />
+        </el-form-item>
+        <el-form-item label="附件">
+          <el-upload
+            :auto-upload="false"
+            multiple
+            :on-change="handleNewUpload"
+            :on-remove="handleNewRemove"
+          >
+            <el-button type="primary">选择文件</el-button>
+          </el-upload>
+          <div v-if="newTask.attachments.length" class="mt-2">
+            <el-link
+              v-for="(a, i) in newTask.attachments"
+              :key="i"
+              :href="a"
+              target="_blank"
+              class="mr-1"
+              >附件{{ i + 1 }}</el-link
+            >
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -139,6 +171,26 @@
           <el-form-item label="描述">
             <el-input type="textarea" v-model="selectedTask.description" />
           </el-form-item>
+          <el-form-item label="附件">
+            <el-upload
+              :auto-upload="false"
+              multiple
+              :on-change="handleDetailUpload"
+              :on-remove="handleDetailRemove"
+            >
+              <el-button type="primary">选择文件</el-button>
+            </el-upload>
+            <div v-if="selectedTask.attachments?.length" class="mt-2">
+              <el-link
+                v-for="(a, i) in selectedTask.attachments"
+                :key="i"
+                :href="a"
+                target="_blank"
+                class="mr-1"
+                >附件{{ i + 1 }}</el-link
+              >
+            </div>
+          </el-form-item>
         </el-form>
       </template>
       <template #footer>
@@ -152,6 +204,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useTaskStore, Task } from '@/stores/useTaskStore'
+import type { UploadFile } from 'element-plus'
 
 const store = useTaskStore()
 
@@ -239,11 +292,12 @@ const newTask = reactive({
   location: '',
   recurrence: '',
   dueDate: null as Date | null,
-  description: ''
+  description: '',
+  attachments: [] as string[]
 })
 
 function openAdd() {
-  Object.assign(newTask, { title: '', status: '新建' as Task['status'], location: '', recurrence: '', dueDate: null, description: '' })
+  Object.assign(newTask, { title: '', status: '新建' as Task['status'], location: '', recurrence: '', dueDate: null, description: '', attachments: [] as string[] })
   addDialogVisible.value = true
 }
 
@@ -258,7 +312,8 @@ function addTask() {
     location: newTask.location || undefined,
     recurrence: newTask.recurrence || undefined,
     dueDate: due,
-    description: newTask.description || undefined
+    description: newTask.description || undefined,
+    attachments: newTask.attachments
   })
   addDialogVisible.value = false
 }
@@ -270,7 +325,8 @@ const selectedTask = ref<(Task & { dueDate?: string | Date }) | null>(null)
 function openDetails(task: Task) {
   selectedTask.value = {
     ...task,
-    dueDate: task.dueDate ? new Date(task.dueDate) : undefined
+    dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
+    attachments: task.attachments ? [...task.attachments] : []
   }
   detailDialogVisible.value = true
 }
@@ -286,7 +342,8 @@ function updateTask() {
       location: selectedTask.value.location,
       recurrence: selectedTask.value.recurrence,
       dueDate: due,
-      description: selectedTask.value.description
+      description: selectedTask.value.description,
+      attachments: selectedTask.value.attachments
     })
   }
   detailDialogVisible.value = false
@@ -304,6 +361,42 @@ function resetFilters() {
   dueStart.value = null
   dueEnd.value = null
   sortBy.value = 'id-desc'
+}
+
+function handleNewUpload(file: UploadFile) {
+  if (file.raw) {
+    const url = URL.createObjectURL(file.raw)
+    file.url = url
+    newTask.attachments.push(url)
+  }
+}
+
+function handleNewRemove(file: UploadFile) {
+  if (file.url) {
+    const idx = newTask.attachments.indexOf(file.url)
+    if (idx !== -1) newTask.attachments.splice(idx, 1)
+    URL.revokeObjectURL(file.url)
+  }
+}
+
+function handleDetailUpload(file: UploadFile) {
+  if (selectedTask.value && file.raw) {
+    const url = URL.createObjectURL(file.raw)
+    file.url = url
+    if (!selectedTask.value.attachments) selectedTask.value.attachments = []
+    selectedTask.value.attachments.push(url)
+  }
+}
+
+function handleDetailRemove(file: UploadFile) {
+  if (selectedTask.value && file.url) {
+    const list = selectedTask.value.attachments
+    if (list) {
+      const idx = list.indexOf(file.url)
+      if (idx !== -1) list.splice(idx, 1)
+    }
+    URL.revokeObjectURL(file.url)
+  }
 }
 </script>
 

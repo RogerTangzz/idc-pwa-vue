@@ -25,9 +25,9 @@
       <el-icon><House /></el-icon>
       <span>首页</span>
     </el-menu-item>
-    <el-menu-item index="/tasks">
+    <el-menu-item index="/maintenance-plans">
       <el-icon><Tickets /></el-icon>
-      <span>任务</span>
+      <span>维护计划</span>
     </el-menu-item>
     <el-menu-item index="/orders">
       <el-icon><Suitcase /></el-icon>
@@ -82,7 +82,7 @@ import { House, Tickets, Suitcase, Monitor, Search, Box, Bell, Reading, Message,
 
 // Access the current route so that `el-menu` can highlight the
 // appropriate menu item.  The `route.path` property holds the
-// current pathname (e.g. "/tasks").
+// current pathname (e.g. "/maintenance-plans").
 const route = useRoute()
 </script>
 
