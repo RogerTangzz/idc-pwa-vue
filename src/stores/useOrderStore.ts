@@ -5,18 +5,28 @@ export interface Order {
   title: string
   priority: '高' | '中' | '低'
   reporter: string
+  specialty: '暖通' | '配电' | '消防弱电'
   assignee?: string
   status: '新建' | '处理中' | '已完成'
   startDate?: string
-  endDate?: string
+  clearTime?: string
   description?: string
+  emergencyMethod?: string
+  faultDescription?: string
+  maintainerSignature?: string
+  attachments?: string[]
   createdAt: string
   synced: boolean
 }
 
+function toStringArray(v: any): string[] {
+  if (Array.isArray(v)) return v.filter(x => typeof x === 'string')
+  if (typeof v === 'string') return [v]
+  return []
+}
+
 /**
- * Store managing work orders (工单).  Orders behave similarly to tasks
- * but include additional fields such as priority, reporter and assignee.
+ * Store managing work orders (工单).
  */
 export const useOrderStore = defineStore('orders', {
   state: () => ({
@@ -26,15 +36,33 @@ export const useOrderStore = defineStore('orders', {
   actions: {
     load() {
       const raw = localStorage.getItem('idc-orders')
-      if (raw) {
-        try {
-          this.list = JSON.parse(raw)
-          const max = this.list.reduce((acc, o) => Math.max(acc, o.id), 0)
-          this.nextId = max + 1
-        } catch {
-          this.list = []
-          this.nextId = 1
-        }
+      if (!raw) return
+      try {
+        const parsed = JSON.parse(raw) as any[]
+        let migrated = false
+        this.list = (parsed || []).map((o: any) => {
+          if (o && typeof o === 'object') {
+            // 兼容旧数据：endDate -> clearTime
+            if (o.endDate && !o.clearTime) {
+              o.clearTime = o.endDate
+              delete o.endDate
+              migrated = true
+            }
+            // 规范化附件
+            const norm = toStringArray(o.attachments)
+            if (o.attachments === undefined || norm.length !== (o.attachments?.length || 0)) {
+              o.attachments = norm
+              migrated = true
+            }
+          }
+          return o as Order
+        })
+        const max = this.list.reduce((acc, o) => Math.max(acc, o.id), 0)
+        this.nextId = max + 1
+        if (migrated) this.save()
+      } catch {
+        this.list = []
+        this.nextId = 1
       }
     },
     save() {
@@ -43,19 +71,23 @@ export const useOrderStore = defineStore('orders', {
     add(data: Omit<Order, 'id' | 'createdAt' | 'synced'>) {
       const order: Order = {
         id: this.nextId++,
-        createdAt: new Date().toISOString(),
+        createdAt: new Date().toLocaleString(),
         synced: false,
         ...data
       }
+      order.attachments = toStringArray(order.attachments)
       this.list.push(order)
       this.save()
     },
     update(id: number, data: Partial<Order>) {
       const idx = this.list.findIndex(o => o.id === id)
-      if (idx !== -1) {
-        this.list[idx] = { ...this.list[idx], ...data }
-        this.save()
+      if (idx === -1) return
+      const merged: Order = { ...this.list[idx], ...data }
+      if (data.attachments !== undefined) {
+        merged.attachments = toStringArray(data.attachments)
       }
+      this.list[idx] = merged
+      this.save()
     },
     remove(id: number) {
       this.list = this.list.filter(o => o.id !== id)
