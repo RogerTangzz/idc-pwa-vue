@@ -10,6 +10,7 @@ export interface Order {
   startDate?: string
   endDate?: string
   description?: string
+  maintainerSignature?: string
   createdAt: string
   synced: boolean
 }

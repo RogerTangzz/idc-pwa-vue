@@ -33,6 +33,7 @@
       <el-table-column prop="startDate" label="开始日期" />
       <el-table-column prop="endDate" label="结束日期" />
       <el-table-column prop="description" label="描述" />
+      <el-table-column prop="maintainerSignature" label="维修人签认" />
       <el-table-column label="操作" width="160">
         <template #default="scope">
           <el-button size="small" @click="openDetails(scope.row)">详情</el-button>
@@ -75,6 +76,9 @@
         <el-form-item label="描述">
           <el-input type="textarea" v-model="newOrder.description" />
         </el-form-item>
+        <el-form-item label="维修人签认">
+          <el-input v-model="newOrder.maintainerSignature" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="addDialogVisible = false">取消</el-button>
@@ -116,6 +120,9 @@
           </el-form-item>
           <el-form-item label="描述">
             <el-input type="textarea" v-model="selectedOrder.description" />
+          </el-form-item>
+          <el-form-item label="维修人签认">
+            <el-input v-model="selectedOrder.maintainerSignature" />
           </el-form-item>
         </el-form>
       </template>
@@ -184,11 +191,12 @@ const newOrder = reactive<Omit<Order, 'id' | 'createdAt' | 'synced'>>({
   status: '新建',
   startDate: '',
   endDate: '',
-  description: ''
+  description: '',
+  maintainerSignature: ''
 })
 
 function openAdd() {
-  Object.assign(newOrder, { title: '', priority: '中', reporter: '', assignee: '', status: '新建', startDate: '', endDate: '', description: '' })
+  Object.assign(newOrder, { title: '', priority: '中', reporter: '', assignee: '', status: '新建', startDate: '', endDate: '', description: '', maintainerSignature: '' })
   addDialogVisible.value = true
 }
 
@@ -202,7 +210,8 @@ function addOrder() {
     status: newOrder.status,
     startDate: newOrder.startDate || undefined,
     endDate: newOrder.endDate || undefined,
-    description: newOrder.description || undefined
+    description: newOrder.description || undefined,
+    maintainerSignature: newOrder.maintainerSignature || undefined
   })
   addDialogVisible.value = false
 }
@@ -222,10 +231,11 @@ function updateOrder() {
       priority: selectedOrder.value.priority,
       reporter: selectedOrder.value.reporter,
       assignee: selectedOrder.value.assignee,
-      status: selectedOrder.value.status,
-      startDate: selectedOrder.value.startDate,
-      endDate: selectedOrder.value.endDate,
-      description: selectedOrder.value.description
+    status: selectedOrder.value.status,
+    startDate: selectedOrder.value.startDate,
+    endDate: selectedOrder.value.endDate,
+    description: selectedOrder.value.description,
+    maintainerSignature: selectedOrder.value.maintainerSignature
     })
   }
   detailDialogVisible.value = false
