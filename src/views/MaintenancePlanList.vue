@@ -1,8 +1,8 @@
 <template>
   <div>
-    <h2>任务列表</h2>
-    <!-- Add new task button -->
-    <el-button type="primary" class="mb-2" @click="openAdd">＋ 添加任务</el-button>
+    <h2>维保计划列表</h2>
+    <!-- Add new maintenance plan button -->
+    <el-button type="primary" class="mb-2" @click="openAdd">＋ 添加维保计划</el-button>
     <!-- Filter controls -->
     <div class="filters">
       <el-input
@@ -49,7 +49,7 @@
       </el-select>
       <el-button size="default" @click="resetFilters">重置</el-button>
     </div>
-    <!-- Tasks table -->
+    <!-- Maintenance plans table -->
     <el-table :data="filteredTasks" stripe style="width: 100%;">
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="title" label="标题" />
@@ -66,8 +66,8 @@
         </template>
       </el-table-column>
     </el-table>
-    <!-- Add task dialog -->
-    <el-dialog v-model="addDialogVisible" title="添加任务" width="500px">
+    <!-- Add maintenance plan dialog -->
+    <el-dialog v-model="addDialogVisible" title="添加维保计划" width="500px">
       <el-form :model="newTask" label-width="80px">
         <el-form-item label="标题">
           <el-input v-model="newTask.title" />
@@ -105,8 +105,8 @@
         <el-button type="primary" @click="addTask">确认</el-button>
       </template>
     </el-dialog>
-    <!-- Task details dialog -->
-    <el-dialog v-model="detailDialogVisible" title="任务详情" width="500px">
+    <!-- Maintenance plan details dialog -->
+    <el-dialog v-model="detailDialogVisible" title="维保计划详情" width="500px">
       <template v-if="selectedTask">
         <el-form :model="selectedTask" label-width="80px">
           <el-form-item label="标题">
@@ -155,7 +155,7 @@ import { useTaskStore, Task } from '@/stores/useTaskStore'
 
 const store = useTaskStore()
 
-// Load tasks from storage when the component is mounted
+// Load maintenance plans from storage when the component is mounted
 onMounted(() => {
   store.load()
 })
@@ -172,7 +172,7 @@ const dueEnd = ref<Date | null>(null)
 const sortBy = ref('id-desc')
 
 /**
- * Compute a filtered and sorted copy of the task list.  The filters
+ * Compute a filtered and sorted copy of the maintenance plan list.  The filters
  * mirror those in the original IDC PWA implementation: keyword search,
  * status filter, location search, recurrence filter and due date range.
  */

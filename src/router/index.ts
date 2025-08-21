@@ -20,9 +20,9 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/HomeView.vue')
   },
   {
-    path: '/tasks',
-    name: 'Tasks',
-    component: () => import('@/views/TaskList.vue')
+    path: '/maintenance-plans',
+    name: 'MaintenancePlans',
+    component: () => import('@/views/MaintenancePlanList.vue')
   },
   {
     path: '/orders',
@@ -38,6 +38,11 @@ const routes: RouteRecordRaw[] = [
     path: '/inspections',
     name: 'Inspections',
     component: () => import('@/views/InspectionList.vue')
+  },
+  {
+    path: '/inspections/:id/edit',
+    name: 'InspectionEdit',
+    component: () => import('@/views/InspectionForm.vue')
   },
   {
     path: '/assets',
