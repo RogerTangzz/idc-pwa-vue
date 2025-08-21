@@ -7,58 +7,96 @@
     localStorage.
   -->
   <div>
-    <h2>标签管理</h2>
-    <el-button type="primary" class="mb-2" @click="openAdd">＋ 添加标签</el-button>
+    <h2>{{ t('tagList.title') }}</h2>
+    <el-button
+      type="primary"
+      class="mb-2"
+      @click="openAdd"
+      :aria-label="t('tagList.addTag')"
+    >
+      ＋ {{ t('tagList.addTag') }}
+    </el-button>
     <el-table :data="store.list" stripe style="width: 100%">
-      <el-table-column prop="id" label="ID" width="60" />
-      <el-table-column prop="name" label="名称" />
-      <el-table-column prop="description" label="描述" />
-      <el-table-column prop="createdAt" label="创建时间" />
-      <el-table-column label="操作" width="160">
+      <el-table-column prop="id" :label="t('tagList.id')" width="60" />
+      <el-table-column prop="name" :label="t('tagList.name')" />
+      <el-table-column prop="description" :label="t('tagList.description')" />
+      <el-table-column prop="createdAt" :label="t('tagList.createdAt')" />
+      <el-table-column :label="t('tagList.actions')" width="160">
         <template #default="scope">
-          <el-button size="small" @click="openEdit(scope.row)">编辑</el-button>
-          <el-button size="small" type="danger" @click="store.remove(scope.row.id)">删除</el-button>
+          <el-button
+            size="small"
+            @click="openEdit(scope.row)"
+            :aria-label="t('tagList.edit')"
+          >
+            {{ t('tagList.edit') }}
+          </el-button>
+          <el-button
+            size="small"
+            type="danger"
+            @click="store.remove(scope.row.id)"
+            :aria-label="t('tagList.delete')"
+          >
+            {{ t('tagList.delete') }}
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
     <!-- Add dialog -->
-    <el-dialog v-model="addDialogVisible" title="添加标签" width="400px">
+    <el-dialog v-model="addDialogVisible" :title="t('tagList.addDialogTitle')" width="400px">
       <el-form :model="newTag" label-width="70px">
-        <el-form-item label="名称">
-          <el-input v-model="newTag.name" />
+        <el-form-item :label="t('tagList.name')">
+          <el-input
+            ref="newTagNameInput"
+            v-model="newTag.name"
+            :aria-label="t('tagList.name')"
+          />
         </el-form-item>
-        <el-form-item label="描述">
-          <el-input v-model="newTag.description" />
+        <el-form-item :label="t('tagList.description')">
+          <el-input v-model="newTag.description" :aria-label="t('tagList.description')" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="addDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="addTag">确认</el-button>
+        <el-button @click="addDialogVisible = false" :aria-label="t('tagList.cancel')">
+          {{ t('tagList.cancel') }}
+        </el-button>
+        <el-button type="primary" @click="addTag" :aria-label="t('tagList.confirm')">
+          {{ t('tagList.confirm') }}
+        </el-button>
       </template>
     </el-dialog>
     <!-- Edit dialog -->
-    <el-dialog v-model="editDialogVisible" title="编辑标签" width="400px">
+    <el-dialog v-model="editDialogVisible" :title="t('tagList.editDialogTitle')" width="400px">
       <template v-if="selectedTag">
         <el-form :model="selectedTag" label-width="70px">
-          <el-form-item label="名称">
-            <el-input v-model="selectedTag.name" />
+          <el-form-item :label="t('tagList.name')">
+            <el-input
+              ref="selectedTagNameInput"
+              v-model="selectedTag.name"
+              :aria-label="t('tagList.name')"
+            />
           </el-form-item>
-          <el-form-item label="描述">
-            <el-input v-model="selectedTag.description" />
+          <el-form-item :label="t('tagList.description')">
+            <el-input v-model="selectedTag.description" :aria-label="t('tagList.description')" />
           </el-form-item>
         </el-form>
       </template>
       <template #footer>
-        <el-button @click="editDialogVisible = false">关闭</el-button>
-        <el-button type="primary" @click="updateTag">保存</el-button>
+        <el-button @click="editDialogVisible = false" :aria-label="t('tagList.close')">
+          {{ t('tagList.close') }}
+        </el-button>
+        <el-button type="primary" @click="updateTag" :aria-label="t('tagList.save')">
+          {{ t('tagList.save') }}
+        </el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
+import type { InputInstance } from 'element-plus'
 import { useTagStore, Tag } from '@/stores/useTagStore'
+import { t } from '@/locales'
 
 const store = useTagStore()
 onMounted(() => {
@@ -69,10 +107,13 @@ const addDialogVisible = ref(false)
 const editDialogVisible = ref(false)
 const newTag = reactive<Omit<Tag, 'id' | 'createdAt'>>({ name: '', description: '' })
 const selectedTag = ref<Tag | null>(null)
+const newTagNameInput = ref<InputInstance>()
+const selectedTagNameInput = ref<InputInstance>()
 
 function openAdd() {
   Object.assign(newTag, { name: '', description: '' })
   addDialogVisible.value = true
+  nextTick(() => newTagNameInput.value?.focus())
 }
 
 function addTag() {
@@ -84,6 +125,7 @@ function addTag() {
 function openEdit(tag: Tag) {
   selectedTag.value = { ...tag }
   editDialogVisible.value = true
+  nextTick(() => selectedTagNameInput.value?.focus())
 }
 
 function updateTag() {
