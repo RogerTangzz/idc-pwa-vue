@@ -20,9 +20,9 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/HomeView.vue')
   },
   {
-    path: '/tasks',
-    name: 'Tasks',
-    component: () => import('@/views/TaskList.vue')
+    path: '/maintenance-plans',
+    name: 'MaintenancePlans',
+    component: () => import('@/views/MaintenancePlanList.vue')
   },
   {
     path: '/orders',

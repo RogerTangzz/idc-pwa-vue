@@ -2,6 +2,7 @@
   <div>
     <h2>工单列表</h2>
     <el-button type="primary" class="mb-2" @click="openAdd">＋ 添加工单</el-button>
+
     <!-- Filter controls -->
     <div class="filters">
       <el-input v-model="keyword" placeholder="关键词搜索..." clearable class="filter-item" />
@@ -18,21 +19,43 @@
         <el-option label="低" value="低" />
       </el-select>
       <el-input v-model="reporterFilter" placeholder="上报人搜索" clearable class="filter-item" />
-      <el-date-picker v-model="startDateFilter" type="date" placeholder="开始日期" class="filter-item" />
-      <el-date-picker v-model="clearTimeFilter" type="date" placeholder="设备故障排除时间" class="filter-item" />
+      <el-date-picker
+        v-model="startDateFilter"
+        type="date"
+        value-format="YYYY-MM-DD"
+        placeholder="开始日期"
+        class="filter-item"
+      />
+      <el-date-picker
+        v-model="clearTimeFilter"
+        type="date"
+        value-format="YYYY-MM-DD"
+        placeholder="设备故障排除时间"
+        class="filter-item"
+      />
       <el-button size="default" @click="resetFilters">重置</el-button>
     </div>
+
     <!-- Orders table -->
     <el-table :data="filteredOrders" stripe style="width: 100%">
       <el-table-column prop="id" label="ID" width="60" />
-      <el-table-column prop="title" label="标题" />
+      <el-table-column prop="title" label="标题">
+        <template #default="scope">
+          <div>
+            <div>{{ scope.row.title }}</div>
+            <div v-if="scope.row.description" class="description">{{ scope.row.description }}</div>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column prop="priority" label="优先级" width="80" />
       <el-table-column prop="reporter" label="上报人" />
+      <el-table-column prop="specialty" label="设备专业" />
       <el-table-column prop="assignee" label="处理人" />
       <el-table-column prop="status" label="状态" width="90" />
       <el-table-column prop="startDate" label="开始日期" />
       <el-table-column prop="clearTime" label="设备故障排除时间" />
-      <el-table-column prop="description" label="描述" />
+      <!-- 如需单独展示“描述”列，可取消下一行注释 -->
+      <!-- <el-table-column prop="description" label="描述" /> -->
       <el-table-column label="操作" width="160">
         <template #default="scope">
           <el-button size="small" @click="openDetails(scope.row)">详情</el-button>
@@ -40,6 +63,7 @@
         </template>
       </el-table-column>
     </el-table>
+
     <!-- Add order dialog -->
     <el-dialog v-model="addDialogVisible" title="添加工单" width="500px">
       <el-form :model="newOrder" label-width="80px">
@@ -56,6 +80,13 @@
         <el-form-item label="上报人">
           <el-input v-model="newOrder.reporter" />
         </el-form-item>
+        <el-form-item label="设备专业">
+          <el-select v-model="newOrder.specialty">
+            <el-option label="暖通" value="暖通" />
+            <el-option label="配电" value="配电" />
+            <el-option label="消防弱电" value="消防弱电" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="处理人">
           <el-input v-model="newOrder.assignee" />
         </el-form-item>
@@ -67,10 +98,10 @@
           </el-select>
         </el-form-item>
         <el-form-item label="开始日期">
-          <el-date-picker v-model="newOrder.startDate" type="date" />
+          <el-date-picker v-model="newOrder.startDate" type="date" value-format="YYYY-MM-DD" />
         </el-form-item>
         <el-form-item label="设备故障排除时间">
-          <el-date-picker v-model="newOrder.clearTime" type="date" />
+          <el-date-picker v-model="newOrder.clearTime" type="date" value-format="YYYY-MM-DD" />
         </el-form-item>
         <el-form-item label="应急处置方法">
           <el-input type="textarea" v-model="newOrder.emergencyMethod" />
@@ -84,6 +115,7 @@
         <el-button type="primary" @click="addOrder">确认</el-button>
       </template>
     </el-dialog>
+
     <!-- Order details dialog -->
     <el-dialog v-model="detailDialogVisible" title="工单详情" width="500px">
       <template v-if="selectedOrder">
@@ -101,6 +133,13 @@
           <el-form-item label="上报人">
             <el-input v-model="selectedOrder.reporter" />
           </el-form-item>
+          <el-form-item label="设备专业">
+            <el-select v-model="selectedOrder.specialty">
+              <el-option label="暖通" value="暖通" />
+              <el-option label="配电" value="配电" />
+              <el-option label="消防弱电" value="消防弱电" />
+            </el-select>
+          </el-form-item>
           <el-form-item label="处理人">
             <el-input v-model="selectedOrder.assignee" />
           </el-form-item>
@@ -112,10 +151,10 @@
             </el-select>
           </el-form-item>
           <el-form-item label="开始日期">
-            <el-date-picker v-model="selectedOrder.startDate" type="date" />
+            <el-date-picker v-model="selectedOrder.startDate" type="date" value-format="YYYY-MM-DD" />
           </el-form-item>
           <el-form-item label="设备故障排除时间">
-            <el-date-picker v-model="selectedOrder.clearTime" type="date" />
+            <el-date-picker v-model="selectedOrder.clearTime" type="date" value-format="YYYY-MM-DD" />
           </el-form-item>
           <el-form-item label="应急处置方法">
             <el-input type="textarea" v-model="selectedOrder.emergencyMethod" />
@@ -182,90 +221,4 @@ const filteredOrders = computed(() => {
 })
 
 const addDialogVisible = ref(false)
-const newOrder = reactive<Omit<Order, 'id' | 'createdAt' | 'synced'>>({
-  title: '',
-  priority: '中',
-  reporter: '',
-  assignee: '',
-  status: '新建',
-  startDate: '',
-  clearTime: '',
-  emergencyMethod: '',
-  description: ''
-})
-
-function openAdd() {
-  Object.assign(newOrder, { title: '', priority: '中', reporter: '', assignee: '', status: '新建', startDate: '', clearTime: '', emergencyMethod: '', description: '' })
-  addDialogVisible.value = true
-}
-
-function addOrder() {
-  if (!newOrder.title || !newOrder.reporter) return
-  store.add({
-    title: newOrder.title,
-    priority: newOrder.priority,
-    reporter: newOrder.reporter,
-    assignee: newOrder.assignee || undefined,
-    status: newOrder.status,
-    startDate: newOrder.startDate || undefined,
-    clearTime: newOrder.clearTime || undefined,
-    emergencyMethod: newOrder.emergencyMethod || undefined,
-    description: newOrder.description || undefined
-  })
-  addDialogVisible.value = false
-}
-
-const detailDialogVisible = ref(false)
-const selectedOrder = ref<Order | null>(null)
-
-function openDetails(order: Order) {
-  selectedOrder.value = { ...order }
-  detailDialogVisible.value = true
-}
-
-function updateOrder() {
-  if (selectedOrder.value) {
-    store.update(selectedOrder.value.id, {
-      title: selectedOrder.value.title,
-      priority: selectedOrder.value.priority,
-      reporter: selectedOrder.value.reporter,
-      assignee: selectedOrder.value.assignee,
-      status: selectedOrder.value.status,
-      startDate: selectedOrder.value.startDate,
-      clearTime: selectedOrder.value.clearTime,
-      emergencyMethod: selectedOrder.value.emergencyMethod,
-      description: selectedOrder.value.description
-    })
-  }
-  detailDialogVisible.value = false
-}
-
-function remove(id: number) {
-  store.remove(id)
-}
-
-function resetFilters() {
-  keyword.value = ''
-  statusFilter.value = ''
-  priorityFilter.value = ''
-  reporterFilter.value = ''
-  startDateFilter.value = null
-  clearTimeFilter.value = null
-}
-</script>
-
-<style scoped>
-h2 {
-  margin-bottom: 16px;
-}
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.filter-item {
-  min-width: 140px;
-  flex: 1;
-}
-</style>
+const newOrder = reactive<Omit<Or
