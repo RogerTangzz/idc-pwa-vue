@@ -78,7 +78,7 @@
 
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
-import { House, Tickets, Suitcase, Monitor, Search, Box, Bell, Reading, Message, Document, User, Notebook, Collection } from '@element-plus/icons-vue'
+import { House, Tickets, Suitcase, Monitor, Search, Box, Bell, Reading, Message, Document, User, Notebook, Collection } from '@element-plus/icons-vue';
 
 // Access the current route so that `el-menu` can highlight the
 // appropriate menu item.  The `route.path` property holds the
