@@ -44,16 +44,21 @@ const routes: RouteRecordRaw[] = [
     name: 'Assets',
     component: () => import('@/views/AssetList.vue')
   },
-  {
-    path: '/notifications',
-    name: 'Notifications',
-    component: () => import('@/views/NotificationList.vue')
-  },
-  {
-    path: '/knowledge',
-    name: 'Knowledge',
-    component: () => import('@/views/KnowledgeList.vue')
-  },
+    {
+      path: '/notifications',
+      name: 'Notifications',
+      component: () => import('@/views/NotificationList.vue')
+    },
+    {
+      path: '/notifications/stats',
+      name: 'NotificationStats',
+      component: () => import('@/views/NotificationStats.vue')
+    },
+    {
+      path: '/knowledge',
+      name: 'Knowledge',
+      component: () => import('@/views/KnowledgeList.vue')
+    },
   {
     path: '/messages',
     name: 'Messages',
