@@ -1,8 +1,9 @@
 <template>
   <div>
-    <h2>任务列表</h2>
-    <!-- Add new task button -->
-    <el-button type="primary" class="mb-2" @click="openAdd">＋ 添加任务</el-button>
+    <h2>维保计划列表</h2>
+    <!-- Add maintenance plan button -->
+    <el-button type="primary" class="mb-2" @click="openAdd">＋ 添加维保计划</el-button>
+
     <!-- Filter controls -->
     <div class="filters">
       <el-input
@@ -49,7 +50,8 @@
       </el-select>
       <el-button size="default" @click="resetFilters">重置</el-button>
     </div>
-    <!-- Tasks table -->
+
+    <!-- Maintenance plans table -->
     <el-table :data="filteredTasks" stripe style="width: 100%;">
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="title" label="标题" />
@@ -59,10 +61,10 @@
       <el-table-column prop="recurrence" label="周期" width="80" />
       <el-table-column prop="createdAt" label="创建时间" />
       <el-table-column prop="description" label="描述" />
-      <el-table-column label="附件" width="120">
+      <el-table-column label="附件" width="160">
         <template #default="scope">
           <el-link
-            v-for="(a, i) in scope.row.attachments"
+            v-for="(a, i) in (scope.row.attachments || [])"
             :key="i"
             :href="a"
             target="_blank"
@@ -78,8 +80,9 @@
         </template>
       </el-table-column>
     </el-table>
-    <!-- Add task dialog -->
-    <el-dialog v-model="addDialogVisible" title="添加任务" width="500px">
+
+    <!-- Add maintenance plan dialog -->
+    <el-dialog v-model="addDialogVisible" title="添加维保计划" width="500px">
       <el-form :model="newTask" label-width="80px">
         <el-form-item label="标题">
           <el-input v-model="newTask.title" />
@@ -103,10 +106,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="截止时间">
-          <el-date-picker
-            v-model="newTask.dueDate"
-            type="datetime"
-          />
+          <el-date-picker v-model="newTask.dueDate" type="datetime" />
         </el-form-item>
         <el-form-item label="描述">
           <el-input type="textarea" v-model="newTask.description" />
@@ -137,8 +137,9 @@
         <el-button type="primary" @click="addTask">确认</el-button>
       </template>
     </el-dialog>
-    <!-- Task details dialog -->
-    <el-dialog v-model="detailDialogVisible" title="任务详情" width="500px">
+
+    <!-- Maintenance plan details dialog -->
+    <el-dialog v-model="detailDialogVisible" title="维保计划详情" width="500px">
       <template v-if="selectedTask">
         <el-form :model="selectedTask" label-width="80px">
           <el-form-item label="标题">
@@ -163,10 +164,7 @@
             </el-select>
           </el-form-item>
           <el-form-item label="截止时间">
-            <el-date-picker
-              v-model="selectedTask.dueDate"
-              type="datetime"
-            />
+            <el-date-picker v-model="selectedTask.dueDate" type="datetime" />
           </el-form-item>
           <el-form-item label="描述">
             <el-input type="textarea" v-model="selectedTask.description" />
@@ -208,7 +206,7 @@ import type { UploadFile } from 'element-plus'
 
 const store = useTaskStore()
 
-// Load tasks from storage when the component is mounted
+// Load maintenance plans from storage when the component is mounted
 onMounted(() => {
   store.load()
 })
@@ -225,9 +223,8 @@ const dueEnd = ref<Date | null>(null)
 const sortBy = ref('id-desc')
 
 /**
- * Compute a filtered and sorted copy of the task list.  The filters
- * mirror those in the original IDC PWA implementation: keyword search,
- * status filter, location search, recurrence filter and due date range.
+ * Compute a filtered and sorted copy of the maintenance plan list.
+ * Filters: keyword, status, location, recurrence, due date range.
  */
 const filteredTasks = computed(() => {
   let items = [...store.list]
@@ -283,7 +280,7 @@ const filteredTasks = computed(() => {
   return items
 })
 
-// New task form state
+// New maintenance plan form state
 const addDialogVisible = ref(false)
 // Use Date for dueDate so that Element Plus date pickers bind correctly.
 const newTask = reactive({
@@ -297,14 +294,20 @@ const newTask = reactive({
 })
 
 function openAdd() {
-  Object.assign(newTask, { title: '', status: '新建' as Task['status'], location: '', recurrence: '', dueDate: null, description: '', attachments: [] as string[] })
+  Object.assign(newTask, {
+    title: '',
+    status: '新建' as Task['status'],
+    location: '',
+    recurrence: '',
+    dueDate: null,
+    description: '',
+    attachments: [] as string[]
+  })
   addDialogVisible.value = true
 }
 
 function addTask() {
-  if (!newTask.title) {
-    return
-  }
+  if (!newTask.title) return
   const due = newTask.dueDate ? newTask.dueDate.toISOString() : undefined
   store.add({
     title: newTask.title,
@@ -320,7 +323,7 @@ function addTask() {
 
 // Details dialog state
 const detailDialogVisible = ref(false)
-const selectedTask = ref<(Task & { dueDate?: string | Date }) | null>(null)
+const selectedTask = ref<(Task & { dueDate?: string | Date; attachments?: string[] }) | null>(null)
 
 function openDetails(task: Task) {
   selectedTask.value = {
@@ -332,20 +335,19 @@ function openDetails(task: Task) {
 }
 
 function updateTask() {
-  if (selectedTask.value) {
-    const due = selectedTask.value.dueDate
-      ? new Date(selectedTask.value.dueDate).toISOString()
-      : undefined
-    store.update(selectedTask.value.id, {
-      title: selectedTask.value.title,
-      status: selectedTask.value.status,
-      location: selectedTask.value.location,
-      recurrence: selectedTask.value.recurrence,
-      dueDate: due,
-      description: selectedTask.value.description,
-      attachments: selectedTask.value.attachments
-    })
-  }
+  if (!selectedTask.value) return
+  const due = selectedTask.value.dueDate
+    ? new Date(selectedTask.value.dueDate).toISOString()
+    : undefined
+  store.update(selectedTask.value.id, {
+    title: selectedTask.value.title,
+    status: selectedTask.value.status,
+    location: selectedTask.value.location,
+    recurrence: selectedTask.value.recurrence,
+    dueDate: due,
+    description: selectedTask.value.description,
+    attachments: selectedTask.value.attachments
+  })
   detailDialogVisible.value = false
 }
 
@@ -363,6 +365,7 @@ function resetFilters() {
   sortBy.value = 'id-desc'
 }
 
+// ----- attachments handlers -----
 function handleNewUpload(file: UploadFile) {
   if (file.raw) {
     const url = URL.createObjectURL(file.raw)
@@ -370,7 +373,6 @@ function handleNewUpload(file: UploadFile) {
     newTask.attachments.push(url)
   }
 }
-
 function handleNewRemove(file: UploadFile) {
   if (file.url) {
     const idx = newTask.attachments.indexOf(file.url)
@@ -378,7 +380,6 @@ function handleNewRemove(file: UploadFile) {
     URL.revokeObjectURL(file.url)
   }
 }
-
 function handleDetailUpload(file: UploadFile) {
   if (selectedTask.value && file.raw) {
     const url = URL.createObjectURL(file.raw)
@@ -387,7 +388,6 @@ function handleDetailUpload(file: UploadFile) {
     selectedTask.value.attachments.push(url)
   }
 }
-
 function handleDetailRemove(file: UploadFile) {
   if (selectedTask.value && file.url) {
     const list = selectedTask.value.attachments
@@ -414,4 +414,6 @@ h2 {
   min-width: 140px;
   flex: 1;
 }
+.mr-1 { margin-right: 8px; }
+.mt-2 { margin-top: 8px; }
 </style>

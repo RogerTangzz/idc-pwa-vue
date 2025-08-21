@@ -62,6 +62,49 @@ export const useTaskStore = defineStore('tasks', {
       localStorage.setItem('idc-tasks', JSON.stringify(this.list))
     },
     /**
+     * When a recurring task is completed schedule the next occurrence.
+     * A new task with the same details but a later dueDate is inserted
+     * unless one already exists. Supported recurrences are 每日/每周/每月.
+     */
+    scheduleNext(task: Task) {
+      if (task.status !== '已完成' || !task.recurrence || !task.dueDate) {
+        return
+      }
+      const current = new Date(task.dueDate)
+      const next = new Date(current)
+      switch (task.recurrence) {
+        case '每日':
+          next.setDate(current.getDate() + 1)
+          break
+        case '每周':
+          next.setDate(current.getDate() + 7)
+          break
+        case '每月':
+          next.setMonth(current.getMonth() + 1)
+          break
+        default:
+          return
+      }
+      const due = next.toISOString()
+      const exists = this.list.some(t => t.title === task.title && t.dueDate === due)
+      if (exists) {
+        return
+      }
+      const newTask: Task = {
+        id: this.nextId++,
+        title: task.title,
+        status: '新建',
+        location: task.location,
+        recurrence: task.recurrence,
+        dueDate: due,
+        createdAt: new Date().toISOString(),
+        description: task.description,
+        synced: false
+      }
+      this.list.push(newTask)
+      this.save()
+    },
+    /**
      * Add a new task.  The id, creation timestamp and synced flag are
      * automatically filled in.
      */
@@ -76,6 +119,7 @@ export const useTaskStore = defineStore('tasks', {
         task.attachments = []
       }
       this.list.push(task)
+      this.scheduleNext(task)
       this.save()
     },
     /**
@@ -86,6 +130,7 @@ export const useTaskStore = defineStore('tasks', {
       const idx = this.list.findIndex(t => t.id === id)
       if (idx !== -1) {
         this.list[idx] = { ...this.list[idx], ...data }
+        this.scheduleNext(this.list[idx])
         this.save()
       }
     },

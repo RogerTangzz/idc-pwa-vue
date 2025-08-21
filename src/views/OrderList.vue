@@ -2,6 +2,7 @@
   <div>
     <h2>工单列表</h2>
     <el-button type="primary" class="mb-2" @click="openAdd">＋ 添加工单</el-button>
+
     <!-- Filter controls -->
     <div class="filters">
       <el-input v-model="keyword" placeholder="关键词搜索..." clearable class="filter-item" />
@@ -18,25 +19,47 @@
         <el-option label="低" value="低" />
       </el-select>
       <el-input v-model="reporterFilter" placeholder="上报人搜索" clearable class="filter-item" />
-      <el-date-picker v-model="startDateFilter" type="date" placeholder="开始日期" class="filter-item" />
-      <el-date-picker v-model="endDateFilter" type="date" placeholder="结束日期" class="filter-item" />
+      <el-date-picker
+        v-model="startDateFilter"
+        type="date"
+        value-format="YYYY-MM-DD"
+        placeholder="开始日期"
+        class="filter-item"
+      />
+      <el-date-picker
+        v-model="clearTimeFilter"
+        type="date"
+        value-format="YYYY-MM-DD"
+        placeholder="设备故障排除时间"
+        class="filter-item"
+      />
       <el-button size="default" @click="resetFilters">重置</el-button>
     </div>
+
     <!-- Orders table -->
     <el-table :data="filteredOrders" stripe style="width: 100%">
       <el-table-column prop="id" label="ID" width="60" />
-      <el-table-column prop="title" label="标题" />
+      <el-table-column prop="title" label="标题">
+        <template #default="scope">
+          <div>
+            <div>{{ scope.row.title }}</div>
+            <div v-if="scope.row.description" class="description">{{ scope.row.description }}</div>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column prop="priority" label="优先级" width="80" />
       <el-table-column prop="reporter" label="上报人" />
+      <el-table-column prop="specialty" label="设备专业" />
       <el-table-column prop="assignee" label="处理人" />
       <el-table-column prop="status" label="状态" width="90" />
       <el-table-column prop="startDate" label="开始日期" />
-      <el-table-column prop="endDate" label="结束日期" />
+      <el-table-column prop="clearTime" label="设备故障排除时间" />
+      <el-table-column prop="faultDescription" label="故障状况描述（含位置）" />
       <el-table-column prop="description" label="描述" />
-      <el-table-column label="附件" width="120">
+      <el-table-column label="附件" width="160">
         <template #default="scope">
           <el-link
-            v-for="(a, i) in scope.row.attachments"
+            v-for="(a, i) in (scope.row.attachments || [])"
             :key="i"
             :href="a"
             target="_blank"
@@ -45,6 +68,7 @@
           >
         </template>
       </el-table-column>
+      <el-table-column prop="maintainerSignature" label="维修人签认" />
       <el-table-column label="操作" width="160">
         <template #default="scope">
           <el-button size="small" @click="openDetails(scope.row)">详情</el-button>
@@ -52,6 +76,7 @@
         </template>
       </el-table-column>
     </el-table>
+
     <!-- Add order dialog -->
     <el-dialog v-model="addDialogVisible" title="添加工单" width="500px">
       <el-form :model="newOrder" label-width="80px">
@@ -68,9 +93,16 @@
         <el-form-item label="上报人">
           <el-input v-model="newOrder.reporter" />
         </el-form-item>
+        <el-form-item label="设备专业">
+          <el-select v-model="newOrder.specialty">
+            <el-option label="暖通" value="暖通" />
+            <el-option label="配电" value="配电" />
+            <el-option label="消防弱电" value="消防弱电" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="处理人">
           <el-input v-model="newOrder.assignee" />
-        </el-form-item>
+        </el-item>
         <el-form-item label="状态">
           <el-select v-model="newOrder.status">
             <el-option label="新建" value="新建" />
@@ -79,10 +111,16 @@
           </el-select>
         </el-form-item>
         <el-form-item label="开始日期">
-          <el-date-picker v-model="newOrder.startDate" type="date" />
+          <el-date-picker v-model="newOrder.startDate" type="date" value-format="YYYY-MM-DD" />
         </el-form-item>
-        <el-form-item label="结束日期">
-          <el-date-picker v-model="newOrder.endDate" type="date" />
+        <el-form-item label="设备故障排除时间">
+          <el-date-picker v-model="newOrder.clearTime" type="date" value-format="YYYY-MM-DD" />
+        </el-form-item>
+        <el-form-item label="应急处置方法">
+          <el-input type="textarea" v-model="newOrder.emergencyMethod" />
+        </el-form-item>
+        <el-form-item label="故障状况描述（含位置）">
+          <el-input type="textarea" v-model="newOrder.faultDescription" />
         </el-form-item>
         <el-form-item label="描述">
           <el-input type="textarea" v-model="newOrder.description" />
@@ -107,12 +145,16 @@
             >
           </div>
         </el-form-item>
+        <el-form-item label="维修人签认">
+          <el-input v-model="newOrder.maintainerSignature" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="addDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="addOrder">确认</el-button>
       </template>
     </el-dialog>
+
     <!-- Order details dialog -->
     <el-dialog v-model="detailDialogVisible" title="工单详情" width="500px">
       <template v-if="selectedOrder">
@@ -130,6 +172,13 @@
           <el-form-item label="上报人">
             <el-input v-model="selectedOrder.reporter" />
           </el-form-item>
+          <el-form-item label="设备专业">
+            <el-select v-model="selectedOrder.specialty">
+              <el-option label="暖通" value="暖通" />
+              <el-option label="配电" value="配电" />
+              <el-option label="消防弱电" value="消防弱电" />
+            </el-select>
+          </el-form-item>
           <el-form-item label="处理人">
             <el-input v-model="selectedOrder.assignee" />
           </el-form-item>
@@ -141,14 +190,20 @@
             </el-select>
           </el-form-item>
           <el-form-item label="开始日期">
-            <el-date-picker v-model="selectedOrder.startDate" type="date" />
+            <el-date-picker v-model="selectedOrder.startDate" type="date" value-format="YYYY-MM-DD" />
           </el-form-item>
-          <el-form-item label="结束日期">
-            <el-date-picker v-model="selectedOrder.endDate" type="date" />
+          <el-form-item label="设备故障排除时间">
+            <el-date-picker v-model="selectedOrder.clearTime" type="date" value-format="YYYY-MM-DD" />
+          </el-form-item>
+          <el-form-item label="应急处置方法">
+            <el-input type="textarea" v-model="selectedOrder.emergencyMethod" />
+          </el-form-item>
+          <el-form-item label="故障状况描述（含位置）">
+            <el-input type="textarea" v-model="selectedOrder.faultDescription" />
           </el-form-item>
           <el-form-item label="描述">
             <el-input type="textarea" v-model="selectedOrder.description" />
-          </el-form-item>
+          </el-item>
           <el-form-item label="附件">
             <el-upload
               :auto-upload="false"
@@ -168,6 +223,9 @@
                 >附件{{ i + 1 }}</el-link
               >
             </div>
+          </el-form-item>
+          <el-form-item label="维修人签认">
+            <el-input v-model="selectedOrder.maintainerSignature" />
           </el-form-item>
         </el-form>
       </template>
@@ -196,7 +254,7 @@ const statusFilter = ref('')
 const priorityFilter = ref('')
 const reporterFilter = ref('')
 const startDateFilter = ref<string | null>(null)
-const endDateFilter = ref<string | null>(null)
+const clearTimeFilter = ref<string | null>(null)
 
 const filteredOrders = computed(() => {
   let items = [...store.list]
@@ -205,7 +263,8 @@ const filteredOrders = computed(() => {
     items = items.filter(o => {
       return (
         o.title.toLowerCase().includes(kw) ||
-        (o.description && o.description.toLowerCase().includes(kw))
+        (o.description && o.description.toLowerCase().includes(kw)) ||
+        (o.faultDescription && o.faultDescription.toLowerCase().includes(kw))
       )
     })
   }
@@ -222,8 +281,8 @@ const filteredOrders = computed(() => {
   if (startDateFilter.value) {
     items = items.filter(o => o.startDate && o.startDate >= startDateFilter.value)
   }
-  if (endDateFilter.value) {
-    items = items.filter(o => o.endDate && o.endDate <= endDateFilter.value)
+  if (clearTimeFilter.value) {
+    items = items.filter(o => o.clearTime && o.clearTime <= clearTimeFilter.value)
   }
   return items
 })
@@ -233,16 +292,34 @@ const newOrder = reactive<Omit<Order, 'id' | 'createdAt' | 'synced'>>({
   title: '',
   priority: '中',
   reporter: '',
+  specialty: '暖通',
   assignee: '',
   status: '新建',
   startDate: '',
-  endDate: '',
+  clearTime: '',
+  emergencyMethod: '',
+  faultDescription: '',
   description: '',
-  attachments: [] as string[]
+  attachments: [] as string[],
+  maintainerSignature: ''
 })
 
 function openAdd() {
-  Object.assign(newOrder, { title: '', priority: '中', reporter: '', assignee: '', status: '新建', startDate: '', endDate: '', description: '', attachments: [] as string[] })
+  Object.assign(newOrder, {
+    title: '',
+    priority: '中',
+    reporter: '',
+    specialty: '暖通',
+    assignee: '',
+    status: '新建',
+    startDate: '',
+    clearTime: '',
+    emergencyMethod: '',
+    faultDescription: '',
+    description: '',
+    attachments: [] as string[],
+    maintainerSignature: ''
+  })
   addDialogVisible.value = true
 }
 
@@ -252,12 +329,16 @@ function addOrder() {
     title: newOrder.title,
     priority: newOrder.priority,
     reporter: newOrder.reporter,
+    specialty: newOrder.specialty,
     assignee: newOrder.assignee || undefined,
     status: newOrder.status,
     startDate: newOrder.startDate || undefined,
-    endDate: newOrder.endDate || undefined,
+    clearTime: newOrder.clearTime || undefined,
+    emergencyMethod: newOrder.emergencyMethod || undefined,
+    faultDescription: newOrder.faultDescription || undefined,
     description: newOrder.description || undefined,
-    attachments: newOrder.attachments
+    attachments: newOrder.attachments,
+    maintainerSignature: newOrder.maintainerSignature || undefined
   })
   addDialogVisible.value = false
 }
@@ -276,12 +357,16 @@ function updateOrder() {
       title: selectedOrder.value.title,
       priority: selectedOrder.value.priority,
       reporter: selectedOrder.value.reporter,
+      specialty: selectedOrder.value.specialty,
       assignee: selectedOrder.value.assignee,
       status: selectedOrder.value.status,
       startDate: selectedOrder.value.startDate,
-      endDate: selectedOrder.value.endDate,
+      clearTime: selectedOrder.value.clearTime,
+      emergencyMethod: selectedOrder.value.emergencyMethod,
+      faultDescription: selectedOrder.value.faultDescription,
       description: selectedOrder.value.description,
-      attachments: selectedOrder.value.attachments
+      attachments: selectedOrder.value.attachments,
+      maintainerSignature: selectedOrder.value.maintainerSignature
     })
   }
   detailDialogVisible.value = false
@@ -297,9 +382,10 @@ function resetFilters() {
   priorityFilter.value = ''
   reporterFilter.value = ''
   startDateFilter.value = null
-  endDateFilter.value = null
+  clearTimeFilter.value = null
 }
 
+// --- attachments handlers (object URLs; for preview only) ---
 function handleNewUpload(file: UploadFile) {
   if (file.raw) {
     const url = URL.createObjectURL(file.raw)
@@ -307,7 +393,6 @@ function handleNewUpload(file: UploadFile) {
     newOrder.attachments.push(url)
   }
 }
-
 function handleNewRemove(file: UploadFile) {
   if (file.url) {
     const idx = newOrder.attachments.indexOf(file.url)
@@ -315,7 +400,6 @@ function handleNewRemove(file: UploadFile) {
     URL.revokeObjectURL(file.url)
   }
 }
-
 function handleDetailUpload(file: UploadFile) {
   if (selectedOrder.value && file.raw) {
     const url = URL.createObjectURL(file.raw)
@@ -324,7 +408,6 @@ function handleDetailUpload(file: UploadFile) {
     selectedOrder.value.attachments.push(url)
   }
 }
-
 function handleDetailRemove(file: UploadFile) {
   if (selectedOrder.value && file.url) {
     const list = selectedOrder.value.attachments
@@ -351,4 +434,11 @@ h2 {
   min-width: 140px;
   flex: 1;
 }
+.description {
+  margin-top: 4px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+.mr-1 { margin-right: 8px; }
+.mt-2 { margin-top: 8px; }
 </style>

@@ -27,7 +27,7 @@
     </el-menu-item>
     <el-menu-item index="/maintenance-plans">
       <el-icon><Tickets /></el-icon>
-      <span>维护计划</span>
+      <span>维保计划</span>
     </el-menu-item>
     <el-menu-item index="/orders">
       <el-icon><Suitcase /></el-icon>
