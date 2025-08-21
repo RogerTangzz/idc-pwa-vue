@@ -35,6 +35,7 @@
       </el-table-column>
       <el-table-column prop="priority" label="优先级" width="80" />
       <el-table-column prop="reporter" label="上报人" />
+      <el-table-column prop="specialty" label="设备专业" />
       <el-table-column prop="assignee" label="处理人" />
       <el-table-column prop="status" label="状态" width="90" />
       <el-table-column prop="startDate" label="开始日期" />
@@ -61,6 +62,13 @@
         </el-form-item>
         <el-form-item label="上报人">
           <el-input v-model="newOrder.reporter" />
+        </el-form-item>
+        <el-form-item label="设备专业">
+          <el-select v-model="newOrder.specialty">
+            <el-option label="暖通" value="暖通" />
+            <el-option label="配电" value="配电" />
+            <el-option label="消防弱电" value="消防弱电" />
+          </el-select>
         </el-form-item>
         <el-form-item label="处理人">
           <el-input v-model="newOrder.assignee" />
@@ -103,6 +111,13 @@
           </el-form-item>
           <el-form-item label="上报人">
             <el-input v-model="selectedOrder.reporter" />
+          </el-form-item>
+          <el-form-item label="设备专业">
+            <el-select v-model="selectedOrder.specialty">
+              <el-option label="暖通" value="暖通" />
+              <el-option label="配电" value="配电" />
+              <el-option label="消防弱电" value="消防弱电" />
+            </el-select>
           </el-form-item>
           <el-form-item label="处理人">
             <el-input v-model="selectedOrder.assignee" />
@@ -186,6 +201,7 @@ const newOrder = reactive<Omit<Order, 'id' | 'createdAt' | 'synced'>>({
   title: '',
   priority: '中',
   reporter: '',
+  specialty: '暖通',
   assignee: '',
   status: '新建',
   startDate: '',
@@ -194,7 +210,7 @@ const newOrder = reactive<Omit<Order, 'id' | 'createdAt' | 'synced'>>({
 })
 
 function openAdd() {
-  Object.assign(newOrder, { title: '', priority: '中', reporter: '', assignee: '', status: '新建', startDate: '', endDate: '', description: '' })
+  Object.assign(newOrder, { title: '', priority: '中', reporter: '', specialty: '暖通', assignee: '', status: '新建', startDate: '', endDate: '', description: '' })
   addDialogVisible.value = true
 }
 
@@ -204,6 +220,7 @@ function addOrder() {
     title: newOrder.title,
     priority: newOrder.priority,
     reporter: newOrder.reporter,
+    specialty: newOrder.specialty,
     assignee: newOrder.assignee || undefined,
     status: newOrder.status,
     startDate: newOrder.startDate || undefined,
@@ -227,6 +244,7 @@ function updateOrder() {
       title: selectedOrder.value.title,
       priority: selectedOrder.value.priority,
       reporter: selectedOrder.value.reporter,
+      specialty: selectedOrder.value.specialty,
       assignee: selectedOrder.value.assignee,
       status: selectedOrder.value.status,
       startDate: selectedOrder.value.startDate,

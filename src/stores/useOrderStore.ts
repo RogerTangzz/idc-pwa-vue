@@ -5,6 +5,7 @@ export interface Order {
   title: string
   priority: '高' | '中' | '低'
   reporter: string
+  specialty: '暖通' | '配电' | '消防弱电'
   assignee?: string
   status: '新建' | '处理中' | '已完成'
   startDate?: string
