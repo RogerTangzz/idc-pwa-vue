@@ -8,27 +8,58 @@
   -->
   <div class="auth-page">
     <el-card class="auth-card">
-      <h2 class="title">注册新账号</h2>
+      <h2 class="title">{{ t('register.title') }}</h2>
       <el-form @submit.prevent="doRegister">
-        <el-form-item label="用户名" label-width="70px">
-          <el-input v-model="username" autocomplete="username" />
+        <el-form-item :label="t('register.username')" label-width="70px">
+          <el-input
+            ref="usernameInput"
+            v-model="username"
+            autocomplete="username"
+            :aria-label="t('register.username')"
+          />
         </el-form-item>
-        <el-form-item label="密码" label-width="70px">
-          <el-input v-model="password" type="password" autocomplete="new-password" />
+        <el-form-item :label="t('register.password')" label-width="70px">
+          <el-input
+            v-model="password"
+            type="password"
+            autocomplete="new-password"
+            :aria-label="t('register.password')"
+          />
         </el-form-item>
-        <el-form-item label="确认密码" label-width="70px">
-          <el-input v-model="confirm" type="password" autocomplete="new-password" />
+        <el-form-item :label="t('register.confirmPassword')" label-width="70px">
+          <el-input
+            v-model="confirm"
+            type="password"
+            autocomplete="new-password"
+            :aria-label="t('register.confirmPassword')"
+          />
         </el-form-item>
-        <el-form-item label="角色" label-width="70px">
-          <el-select v-model="role" placeholder="请选择角色">
-            <el-option label="管理员" value="管理员" />
-            <el-option label="巡检员" value="巡检员" />
-            <el-option label="运维工程师" value="运维工程师" />
+        <el-form-item :label="t('register.role')" label-width="70px">
+          <el-select
+            v-model="role"
+            :placeholder="t('register.selectRole')"
+            :aria-label="t('register.role')"
+          >
+            <el-option :label="t('register.admin')" :value="t('register.admin')" />
+            <el-option :label="t('register.inspector')" :value="t('register.inspector')" />
+            <el-option :label="t('register.engineer')" :value="t('register.engineer')" />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="doRegister">注册</el-button>
-          <router-link to="/login" class="link">返回登录</router-link>
+          <el-button
+            type="primary"
+            @click="doRegister"
+            :aria-label="t('register.register')"
+          >
+            {{ t('register.register') }}
+          </el-button>
+          <router-link
+            to="/login"
+            class="link"
+            :aria-label="t('register.loginLink')"
+          >
+            {{ t('register.loginLink') }}
+          </router-link>
         </el-form-item>
         <div v-if="error" class="error">{{ error }}</div>
       </el-form>
@@ -37,35 +68,45 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/useAuthStore'
+import { t } from '@/locales'
+import type { InputInstance } from 'element-plus'
 
 const username = ref('')
 const password = ref('')
 const confirm = ref('')
-const role = ref('管理员')
+const role = ref(t('register.admin'))
 const error = ref('')
+const usernameInput = ref<InputInstance>()
 
 const auth = useAuthStore()
 auth.load()
 const router = useRouter()
 
+onMounted(() => {
+  usernameInput.value?.focus()
+})
+
 function doRegister() {
   error.value = ''
   if (!username.value || !password.value || !confirm.value) {
-    error.value = '请填写所有字段'
+    error.value = t('register.errorMissing')
+    usernameInput.value?.focus()
     return
   }
   if (password.value !== confirm.value) {
-    error.value = '两次密码输入不一致'
+    error.value = t('register.errorMismatch')
+    usernameInput.value?.focus()
     return
   }
   try {
     auth.register(username.value.trim(), password.value, role.value)
     router.push('/')
   } catch (e) {
-    error.value = (e as Error).message || '注册失败'
+    error.value = (e as Error).message || t('register.errorGeneric')
+    usernameInput.value?.focus()
   }
 }
 </script>
