@@ -1,8 +1,9 @@
 <template>
   <div>
     <h2>维保计划列表</h2>
-    <!-- Add new maintenance plan button -->
+    <!-- Add maintenance plan button -->
     <el-button type="primary" class="mb-2" @click="openAdd">＋ 添加维保计划</el-button>
+
     <!-- Filter controls -->
     <div class="filters">
       <el-input
@@ -49,6 +50,7 @@
       </el-select>
       <el-button size="default" @click="resetFilters">重置</el-button>
     </div>
+
     <!-- Maintenance plans table -->
     <el-table :data="filteredTasks" stripe style="width: 100%;">
       <el-table-column prop="id" label="ID" width="60" />
@@ -59,6 +61,18 @@
       <el-table-column prop="recurrence" label="周期" width="80" />
       <el-table-column prop="createdAt" label="创建时间" />
       <el-table-column prop="description" label="描述" />
+      <el-table-column label="附件" width="160">
+        <template #default="scope">
+          <el-link
+            v-for="(a, i) in (scope.row.attachments || [])"
+            :key="i"
+            :href="a"
+            target="_blank"
+            class="mr-1"
+            >附件{{ i + 1 }}</el-link
+          >
+        </template>
+      </el-table-column>
       <el-table-column label="操作" width="160">
         <template #default="scope">
           <el-button size="small" @click="openDetails(scope.row)">详情</el-button>
@@ -66,6 +80,7 @@
         </template>
       </el-table-column>
     </el-table>
+
     <!-- Add maintenance plan dialog -->
     <el-dialog v-model="addDialogVisible" title="添加维保计划" width="500px">
       <el-form :model="newTask" label-width="80px">
@@ -91,13 +106,30 @@
           </el-select>
         </el-form-item>
         <el-form-item label="截止时间">
-          <el-date-picker
-            v-model="newTask.dueDate"
-            type="datetime"
-          />
+          <el-date-picker v-model="newTask.dueDate" type="datetime" />
         </el-form-item>
         <el-form-item label="描述">
           <el-input type="textarea" v-model="newTask.description" />
+        </el-form-item>
+        <el-form-item label="附件">
+          <el-upload
+            :auto-upload="false"
+            multiple
+            :on-change="handleNewUpload"
+            :on-remove="handleNewRemove"
+          >
+            <el-button type="primary">选择文件</el-button>
+          </el-upload>
+          <div v-if="newTask.attachments.length" class="mt-2">
+            <el-link
+              v-for="(a, i) in newTask.attachments"
+              :key="i"
+              :href="a"
+              target="_blank"
+              class="mr-1"
+              >附件{{ i + 1 }}</el-link
+            >
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -105,6 +137,7 @@
         <el-button type="primary" @click="addTask">确认</el-button>
       </template>
     </el-dialog>
+
     <!-- Maintenance plan details dialog -->
     <el-dialog v-model="detailDialogVisible" title="维保计划详情" width="500px">
       <template v-if="selectedTask">
@@ -131,13 +164,30 @@
             </el-select>
           </el-form-item>
           <el-form-item label="截止时间">
-            <el-date-picker
-              v-model="selectedTask.dueDate"
-              type="datetime"
-            />
+            <el-date-picker v-model="selectedTask.dueDate" type="datetime" />
           </el-form-item>
           <el-form-item label="描述">
             <el-input type="textarea" v-model="selectedTask.description" />
+          </el-form-item>
+          <el-form-item label="附件">
+            <el-upload
+              :auto-upload="false"
+              multiple
+              :on-change="handleDetailUpload"
+              :on-remove="handleDetailRemove"
+            >
+              <el-button type="primary">选择文件</el-button>
+            </el-upload>
+            <div v-if="selectedTask.attachments?.length" class="mt-2">
+              <el-link
+                v-for="(a, i) in selectedTask.attachments"
+                :key="i"
+                :href="a"
+                target="_blank"
+                class="mr-1"
+                >附件{{ i + 1 }}</el-link
+              >
+            </div>
           </el-form-item>
         </el-form>
       </template>
@@ -152,6 +202,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useTaskStore, Task } from '@/stores/useTaskStore'
+import type { UploadFile } from 'element-plus'
 
 const store = useTaskStore()
 
@@ -172,9 +223,8 @@ const dueEnd = ref<Date | null>(null)
 const sortBy = ref('id-desc')
 
 /**
- * Compute a filtered and sorted copy of the maintenance plan list.  The filters
- * mirror those in the original IDC PWA implementation: keyword search,
- * status filter, location search, recurrence filter and due date range.
+ * Compute a filtered and sorted copy of the maintenance plan list.
+ * Filters: keyword, status, location, recurrence, due date range.
  */
 const filteredTasks = computed(() => {
   let items = [...store.list]
@@ -230,7 +280,7 @@ const filteredTasks = computed(() => {
   return items
 })
 
-// New task form state
+// New maintenance plan form state
 const addDialogVisible = ref(false)
 // Use Date for dueDate so that Element Plus date pickers bind correctly.
 const newTask = reactive({
@@ -239,18 +289,25 @@ const newTask = reactive({
   location: '',
   recurrence: '',
   dueDate: null as Date | null,
-  description: ''
+  description: '',
+  attachments: [] as string[]
 })
 
 function openAdd() {
-  Object.assign(newTask, { title: '', status: '新建' as Task['status'], location: '', recurrence: '', dueDate: null, description: '' })
+  Object.assign(newTask, {
+    title: '',
+    status: '新建' as Task['status'],
+    location: '',
+    recurrence: '',
+    dueDate: null,
+    description: '',
+    attachments: [] as string[]
+  })
   addDialogVisible.value = true
 }
 
 function addTask() {
-  if (!newTask.title) {
-    return
-  }
+  if (!newTask.title) return
   const due = newTask.dueDate ? newTask.dueDate.toISOString() : undefined
   store.add({
     title: newTask.title,
@@ -258,37 +315,39 @@ function addTask() {
     location: newTask.location || undefined,
     recurrence: newTask.recurrence || undefined,
     dueDate: due,
-    description: newTask.description || undefined
+    description: newTask.description || undefined,
+    attachments: newTask.attachments
   })
   addDialogVisible.value = false
 }
 
 // Details dialog state
 const detailDialogVisible = ref(false)
-const selectedTask = ref<(Task & { dueDate?: string | Date }) | null>(null)
+const selectedTask = ref<(Task & { dueDate?: string | Date; attachments?: string[] }) | null>(null)
 
 function openDetails(task: Task) {
   selectedTask.value = {
     ...task,
-    dueDate: task.dueDate ? new Date(task.dueDate) : undefined
+    dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
+    attachments: task.attachments ? [...task.attachments] : []
   }
   detailDialogVisible.value = true
 }
 
 function updateTask() {
-  if (selectedTask.value) {
-    const due = selectedTask.value.dueDate
-      ? new Date(selectedTask.value.dueDate).toISOString()
-      : undefined
-    store.update(selectedTask.value.id, {
-      title: selectedTask.value.title,
-      status: selectedTask.value.status,
-      location: selectedTask.value.location,
-      recurrence: selectedTask.value.recurrence,
-      dueDate: due,
-      description: selectedTask.value.description
-    })
-  }
+  if (!selectedTask.value) return
+  const due = selectedTask.value.dueDate
+    ? new Date(selectedTask.value.dueDate).toISOString()
+    : undefined
+  store.update(selectedTask.value.id, {
+    title: selectedTask.value.title,
+    status: selectedTask.value.status,
+    location: selectedTask.value.location,
+    recurrence: selectedTask.value.recurrence,
+    dueDate: due,
+    description: selectedTask.value.description,
+    attachments: selectedTask.value.attachments
+  })
   detailDialogVisible.value = false
 }
 
@@ -304,6 +363,40 @@ function resetFilters() {
   dueStart.value = null
   dueEnd.value = null
   sortBy.value = 'id-desc'
+}
+
+// ----- attachments handlers -----
+function handleNewUpload(file: UploadFile) {
+  if (file.raw) {
+    const url = URL.createObjectURL(file.raw)
+    file.url = url
+    newTask.attachments.push(url)
+  }
+}
+function handleNewRemove(file: UploadFile) {
+  if (file.url) {
+    const idx = newTask.attachments.indexOf(file.url)
+    if (idx !== -1) newTask.attachments.splice(idx, 1)
+    URL.revokeObjectURL(file.url)
+  }
+}
+function handleDetailUpload(file: UploadFile) {
+  if (selectedTask.value && file.raw) {
+    const url = URL.createObjectURL(file.raw)
+    file.url = url
+    if (!selectedTask.value.attachments) selectedTask.value.attachments = []
+    selectedTask.value.attachments.push(url)
+  }
+}
+function handleDetailRemove(file: UploadFile) {
+  if (selectedTask.value && file.url) {
+    const list = selectedTask.value.attachments
+    if (list) {
+      const idx = list.indexOf(file.url)
+      if (idx !== -1) list.splice(idx, 1)
+    }
+    URL.revokeObjectURL(file.url)
+  }
 }
 </script>
 
@@ -321,4 +414,6 @@ h2 {
   min-width: 140px;
   flex: 1;
 }
+.mr-1 { margin-right: 8px; }
+.mt-2 { margin-top: 8px; }
 </style>

@@ -13,6 +13,7 @@ export interface Task {
   dueDate?: string
   createdAt: string
   description?: string
+  attachments?: string[]
   /** When true the task has been synchronised with the backend. */
   synced: boolean
 }
@@ -113,6 +114,9 @@ export const useTaskStore = defineStore('tasks', {
         createdAt: new Date().toISOString(),
         synced: false,
         ...taskData
+      }
+      if (!task.attachments) {
+        task.attachments = []
       }
       this.list.push(task)
       this.scheduleNext(task)

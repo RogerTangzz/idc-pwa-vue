@@ -56,6 +56,18 @@
       <el-table-column prop="clearTime" label="设备故障排除时间" />
       <el-table-column prop="faultDescription" label="故障状况描述（含位置）" />
       <el-table-column prop="description" label="描述" />
+      <el-table-column label="附件" width="160">
+        <template #default="scope">
+          <el-link
+            v-for="(a, i) in (scope.row.attachments || [])"
+            :key="i"
+            :href="a"
+            target="_blank"
+            class="mr-1"
+            >附件{{ i + 1 }}</el-link
+          >
+        </template>
+      </el-table-column>
       <el-table-column prop="maintainerSignature" label="维修人签认" />
       <el-table-column label="操作" width="160">
         <template #default="scope">
@@ -90,7 +102,7 @@
         </el-form-item>
         <el-form-item label="处理人">
           <el-input v-model="newOrder.assignee" />
-        </el-form-item>
+        </el-item>
         <el-form-item label="状态">
           <el-select v-model="newOrder.status">
             <el-option label="新建" value="新建" />
@@ -112,6 +124,26 @@
         </el-form-item>
         <el-form-item label="描述">
           <el-input type="textarea" v-model="newOrder.description" />
+        </el-form-item>
+        <el-form-item label="附件">
+          <el-upload
+            :auto-upload="false"
+            multiple
+            :on-change="handleNewUpload"
+            :on-remove="handleNewRemove"
+          >
+            <el-button type="primary">选择文件</el-button>
+          </el-upload>
+          <div v-if="newOrder.attachments.length" class="mt-2">
+            <el-link
+              v-for="(a, i) in newOrder.attachments"
+              :key="i"
+              :href="a"
+              target="_blank"
+              class="mr-1"
+              >附件{{ i + 1 }}</el-link
+            >
+          </div>
         </el-form-item>
         <el-form-item label="维修人签认">
           <el-input v-model="newOrder.maintainerSignature" />
@@ -171,6 +203,26 @@
           </el-form-item>
           <el-form-item label="描述">
             <el-input type="textarea" v-model="selectedOrder.description" />
+          </el-item>
+          <el-form-item label="附件">
+            <el-upload
+              :auto-upload="false"
+              multiple
+              :on-change="handleDetailUpload"
+              :on-remove="handleDetailRemove"
+            >
+              <el-button type="primary">选择文件</el-button>
+            </el-upload>
+            <div v-if="selectedOrder.attachments?.length" class="mt-2">
+              <el-link
+                v-for="(a, i) in selectedOrder.attachments"
+                :key="i"
+                :href="a"
+                target="_blank"
+                class="mr-1"
+                >附件{{ i + 1 }}</el-link
+              >
+            </div>
           </el-form-item>
           <el-form-item label="维修人签认">
             <el-input v-model="selectedOrder.maintainerSignature" />
@@ -188,6 +240,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useOrderStore, Order } from '@/stores/useOrderStore'
+import type { UploadFile } from 'element-plus'
 
 const store = useOrderStore()
 
@@ -247,6 +300,7 @@ const newOrder = reactive<Omit<Order, 'id' | 'createdAt' | 'synced'>>({
   emergencyMethod: '',
   faultDescription: '',
   description: '',
+  attachments: [] as string[],
   maintainerSignature: ''
 })
 
@@ -263,6 +317,7 @@ function openAdd() {
     emergencyMethod: '',
     faultDescription: '',
     description: '',
+    attachments: [] as string[],
     maintainerSignature: ''
   })
   addDialogVisible.value = true
@@ -282,6 +337,7 @@ function addOrder() {
     emergencyMethod: newOrder.emergencyMethod || undefined,
     faultDescription: newOrder.faultDescription || undefined,
     description: newOrder.description || undefined,
+    attachments: newOrder.attachments,
     maintainerSignature: newOrder.maintainerSignature || undefined
   })
   addDialogVisible.value = false
@@ -291,7 +347,7 @@ const detailDialogVisible = ref(false)
 const selectedOrder = ref<Order | null>(null)
 
 function openDetails(order: Order) {
-  selectedOrder.value = { ...order }
+  selectedOrder.value = { ...order, attachments: order.attachments ? [...order.attachments] : [] }
   detailDialogVisible.value = true
 }
 
@@ -309,6 +365,7 @@ function updateOrder() {
       emergencyMethod: selectedOrder.value.emergencyMethod,
       faultDescription: selectedOrder.value.faultDescription,
       description: selectedOrder.value.description,
+      attachments: selectedOrder.value.attachments,
       maintainerSignature: selectedOrder.value.maintainerSignature
     })
   }
@@ -326,6 +383,40 @@ function resetFilters() {
   reporterFilter.value = ''
   startDateFilter.value = null
   clearTimeFilter.value = null
+}
+
+// --- attachments handlers (object URLs; for preview only) ---
+function handleNewUpload(file: UploadFile) {
+  if (file.raw) {
+    const url = URL.createObjectURL(file.raw)
+    file.url = url
+    newOrder.attachments.push(url)
+  }
+}
+function handleNewRemove(file: UploadFile) {
+  if (file.url) {
+    const idx = newOrder.attachments.indexOf(file.url)
+    if (idx !== -1) newOrder.attachments.splice(idx, 1)
+    URL.revokeObjectURL(file.url)
+  }
+}
+function handleDetailUpload(file: UploadFile) {
+  if (selectedOrder.value && file.raw) {
+    const url = URL.createObjectURL(file.raw)
+    file.url = url
+    if (!selectedOrder.value.attachments) selectedOrder.value.attachments = []
+    selectedOrder.value.attachments.push(url)
+  }
+}
+function handleDetailRemove(file: UploadFile) {
+  if (selectedOrder.value && file.url) {
+    const list = selectedOrder.value.attachments
+    if (list) {
+      const idx = list.indexOf(file.url)
+      if (idx !== -1) list.splice(idx, 1)
+    }
+    URL.revokeObjectURL(file.url)
+  }
 }
 </script>
 
@@ -348,4 +439,6 @@ h2 {
   color: var(--el-text-color-secondary);
   font-size: 12px;
 }
+.mr-1 { margin-right: 8px; }
+.mt-2 { margin-top: 8px; }
 </style>

@@ -14,8 +14,15 @@ export interface Order {
   emergencyMethod?: string
   faultDescription?: string
   maintainerSignature?: string
+  attachments?: string[]
   createdAt: string
   synced: boolean
+}
+
+function toStringArray(v: any): string[] {
+  if (Array.isArray(v)) return v.filter(x => typeof x === 'string')
+  if (typeof v === 'string') return [v]
+  return []
 }
 
 /**
@@ -29,28 +36,33 @@ export const useOrderStore = defineStore('orders', {
   actions: {
     load() {
       const raw = localStorage.getItem('idc-orders')
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw) as any[]
-          let migrated = false
-          this.list = (parsed || []).map((o: any) => {
+      if (!raw) return
+      try {
+        const parsed = JSON.parse(raw) as any[]
+        let migrated = false
+        this.list = (parsed || []).map((o: any) => {
+          if (o && typeof o === 'object') {
             // 兼容旧数据：endDate -> clearTime
-            if (o && typeof o === 'object') {
-              if (o.endDate && !o.clearTime) {
-                o.clearTime = o.endDate
-                delete o.endDate
-                migrated = true
-              }
+            if (o.endDate && !o.clearTime) {
+              o.clearTime = o.endDate
+              delete o.endDate
+              migrated = true
             }
-            return o as Order
-          })
-          const max = this.list.reduce((acc, o) => Math.max(acc, o.id), 0)
-          this.nextId = max + 1
-          if (migrated) this.save()
-        } catch {
-          this.list = []
-          this.nextId = 1
-        }
+            // 规范化附件
+            const norm = toStringArray(o.attachments)
+            if (o.attachments === undefined || norm.length !== (o.attachments?.length || 0)) {
+              o.attachments = norm
+              migrated = true
+            }
+          }
+          return o as Order
+        })
+        const max = this.list.reduce((acc, o) => Math.max(acc, o.id), 0)
+        this.nextId = max + 1
+        if (migrated) this.save()
+      } catch {
+        this.list = []
+        this.nextId = 1
       }
     },
     save() {
@@ -63,15 +75,19 @@ export const useOrderStore = defineStore('orders', {
         synced: false,
         ...data
       }
+      order.attachments = toStringArray(order.attachments)
       this.list.push(order)
       this.save()
     },
     update(id: number, data: Partial<Order>) {
       const idx = this.list.findIndex(o => o.id === id)
-      if (idx !== -1) {
-        this.list[idx] = { ...this.list[idx], ...data }
-        this.save()
+      if (idx === -1) return
+      const merged: Order = { ...this.list[idx], ...data }
+      if (data.attachments !== undefined) {
+        merged.attachments = toStringArray(data.attachments)
       }
+      this.list[idx] = merged
+      this.save()
     },
     remove(id: number) {
       this.list = this.list.filter(o => o.id !== id)
