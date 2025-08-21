@@ -58,5 +58,25 @@ describe('useTaskStore', () => {
     store.add({ title: 'date test', status: '新建', dueDate: due })
     expect(store.list[0].dueDate).toMatch(isoRegex)
   })
+
+  it('schedules next task for completed recurring items', () => {
+    const due = new Date('2025-08-01T08:00:00Z').toISOString()
+    store.add({ title: 'rec', status: '已完成', recurrence: '每日', dueDate: due })
+    expect(store.list).toHaveLength(2)
+    const nextDue = new Date('2025-08-02T08:00:00Z').toISOString()
+    const next = store.list.find(t => t.dueDate === nextDue)
+    expect(next).toBeTruthy()
+    expect(next?.status).toBe('新建')
+  })
+
+  it('avoids duplicate scheduled tasks', () => {
+    const due = new Date('2025-09-01T08:00:00Z').toISOString()
+    store.add({ title: 'dup', status: '已完成', recurrence: '每日', dueDate: due })
+    // call scheduleNext again to simulate repeated completion
+    store.scheduleNext(store.list[0])
+    const nextDue = new Date('2025-09-02T08:00:00Z').toISOString()
+    const occurrences = store.list.filter(t => t.dueDate === nextDue)
+    expect(occurrences.length).toBe(1)
+  })
 })
 
