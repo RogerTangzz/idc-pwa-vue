@@ -15,93 +15,77 @@ export interface Notification {
   // 测试/简单分支字段
   title?: string
   message?: string
-  type?: string          // e.g. info/warn...
+  createdAt?: string
   read?: boolean
-  date?: string          // 兼容旧字段；与 createdAt 同步
 
-  // 管理/统计/服务分支字段
-  content?: string
+  // 管理/统计分支字段
   publisher?: string
-  confirmed?: boolean
-  confirmedCount?: number
-
-  // 公共字段
-  createdAt: string
-}
-
-export interface NotificationStat {
-  id: number
-  title: string
-  confirmed: number
-  /** 未确认人员名单（无用户体系时先留空） */
-  unconfirmed: string[]
+  type?: string          // e.g. info/warn
+  date?: string          // 兼容旧 UI 使用的 date
+  confirmed?: boolean    // 兼容布尔形式
+  confirmedCount?: number // 兼容数值形式
 }
 
 const STORAGE_KEY = 'idc-notifications'
 
-/** 将任意对象规范化为统一 Notification 结构 */
-function normalize(n: any, fallbackId: number): Notification {
-  const id = typeof n?.id === 'number' ? n.id : fallbackId
-  const srcCreated = n?.createdAt ?? n?.date
-  const createdAt = srcCreated ? String(srcCreated) : new Date().toISOString()
+function fromService(o: ServiceNotification | any, fallbackId = 1): Notification {
+  const id = typeof o?.id === 'number' ? o.id : fallbackId
+  const createdAt =
+    typeof o?.createdAt === 'string' ? o.createdAt
+    : typeof o?.date === 'string' ? o.date
+    : new Date().toISOString()
 
   const title =
-    n?.title != null ? String(n.title)
-    : n?.message != null ? String(n.message)
-    : ''
+    typeof o?.title === 'string' ? o.title
+    : typeof o?.name === 'string' ? o.name
+    : typeof o?.message === 'string' ? o.message
+    : `通知 #${id}`
 
   const message =
-    n?.message != null ? String(n.message)
-    : n?.title != null ? String(n.title)
+    typeof o?.message === 'string' ? o.message
+    : typeof o?.content === 'string' ? o.content
     : ''
 
-  let confirmedBool: boolean
-  if (typeof n?.confirmed === 'boolean') confirmedBool = n.confirmed
-  else if (typeof n?.confirmed === 'number') confirmedBool = n.confirmed > 0
-  else if (typeof n?.confirmedCount === 'number') confirmedBool = n.confirmedCount > 0
-  else confirmedBool = false
+  const confirmedBool =
+    typeof o?.confirmed === 'boolean' ? o.confirmed
+    : typeof o?.status === 'string' ? (o.status === 'confirmed' || o.status === 'done')
+    : false
 
   const confirmedCount =
-    typeof n?.confirmedCount === 'number' ? n.confirmedCount
-    : typeof n?.confirmed === 'number' ? Number(n.confirmed)
+    typeof o?.confirmedCount === 'number' ? o.confirmedCount
+    : typeof o?.confirmed === 'number' ? Number(o.confirmed)
     : confirmedBool ? 1 : 0
 
   const read =
-    typeof n?.read === 'boolean' ? n.read : false
+    typeof o?.read === 'boolean' ? o.read : false
 
   return {
     id,
     createdAt,
     date: createdAt, // 同步一份以兼容旧 UI
     title,
-    content: n?.content != null ? String(n.content) : undefined,
-    publisher: n?.publisher != null ? String(n.publisher) : undefined,
     message,
-    type: n?.type != null ? String(n.type) : undefined,
-    read,
+    publisher: typeof o?.publisher === 'string' ? o.publisher : undefined,
+    type: typeof o?.type === 'string' ? o.type : undefined,
     confirmed: confirmedBool,
-    confirmedCount
+    confirmedCount,
+    read
   }
 }
 
-/** 将服务层 Notification 规范化为本地 Notification */
-function fromService(s: ServiceNotification, fallbackId: number): Notification {
-  return normalize(s as any, fallbackId)
-}
-
-export const useNotificationStore = defineStore('notifications', {
+export const useNotificationStore = defineStore('notification', {
   state: () => ({
     list: [] as Notification[],
     nextId: 1,
-    stats: [] as NotificationStat[],
     loading: false,
-    error: null as string | null
+    error: null as string | null,
+    // 简单统计：每条的确认数量（或布尔）
+    stats: [] as Array<{ id: number; title: string; confirmed: number; unconfirmed: string[] }>
   }),
   getters: {
-    // 测试分支所需统计：按布尔 confirmed 计数
-    total: state => state.list.length,
-    confirmedCount: state => state.list.filter(n => n.confirmed === true).length,
-    unconfirmedCount: state => state.list.filter(n => !n.confirmed).length
+    unreadCount(state): number {
+      return state.list.filter(n => !n.read).length
+    }
   },
   actions: {
     /** 从服务端加载；失败则回退到 localStorage */
@@ -133,7 +117,7 @@ export const useNotificationStore = defineStore('notifications', {
             this.stats = []
           } else {
             const parsed = JSON.parse(raw) as any[]
-            this.list = (Array.isArray(parsed) ? parsed : []).map((o, idx) => normalize(o, idx + 1))
+            this.list = parsed.map((o, idx) => fromService(o, idx + 1))
             const max = this.list.reduce((acc, n) => Math.max(acc, n.id), 0)
             this.nextId = max + 1
             this.stats = this.list.map(n => ({
@@ -143,13 +127,12 @@ export const useNotificationStore = defineStore('notifications', {
               unconfirmed: []
             }))
           }
-        } catch {
+        } catch (parseErr: any) {
+          this.error = parseErr?.message || String(parseErr)
           this.list = []
           this.nextId = 1
           this.stats = []
         }
-        // 记录错误但不打断 UI
-        this.error = e?.message || String(e)
       } finally {
         this.loading = false
       }
@@ -162,10 +145,9 @@ export const useNotificationStore = defineStore('notifications', {
     /** 兼容两种调用：
      *  - add('消息内容')  —— 测试/简单分支（调用服务 postNotification）
      *  - add({ title, content, publisher, type, ... }) —— 管理分支（本地创建）
+     * 说明：对象内的 id/createdAt/confirmed/confirmedCount/read/date 由本方法自动生成或规范化
      */
-    async add(message: string): Promise<void>
-    async add(data: Omit<Notification, 'id' | 'createdAt' | 'confirmed' | 'confirmedCount' | 'read' | 'date'>): Promise<void>
-    async add(arg: any) {
+    async add(arg: string | Omit<Notification, 'id' | 'createdAt' | 'date' | 'read' | 'confirmed' | 'confirmedCount'>): Promise<void> {
       this.loading = true
       this.error = null
       try {
@@ -193,15 +175,15 @@ export const useNotificationStore = defineStore('notifications', {
               date: now,
               title: arg,
               message: arg,
-              read: false,
               confirmed: false,
-              confirmedCount: 0
+              confirmedCount: 0,
+              read: false
             }
             this.list.push(n)
           }
         } else {
-          // 对象：管理分支
-          const n = normalize(
+          // 对象：本地创建
+          const n = fromService(
             {
               ...arg,
               id: this.nextId,
@@ -217,6 +199,7 @@ export const useNotificationStore = defineStore('notifications', {
         }
 
         this.save()
+
         // 更新统计
         this.stats = this.list.map(n => ({
           id: n.id,
@@ -236,35 +219,20 @@ export const useNotificationStore = defineStore('notifications', {
       this.loading = true
       this.error = null
       try {
-        let updated: ServiceNotification | null = null
         try {
-          updated = await apiConfirmNotification(id)
+          await apiConfirmNotification(id)
+          // 如果服务端记录了确认数，这里可以在下一次 load 时同步；此处先本地+1
         } catch {
-          // 静默回退到本地处理
+          // 服务失败就直接本地记一次
         }
-
-        if (updated) {
-          const n = fromService(updated, id)
-          const idx = this.list.findIndex(i => i.id === id)
-          if (idx !== -1) this.list[idx] = { ...this.list[idx], ...n }
-        } else {
-          // 本地兜底：置 confirmed=true，并把 confirmedCount 至少提升为 1
-          const item = this.list.find(n => n.id === id)
-          if (item) {
-            item.confirmed = true
-            const current = typeof item.confirmedCount === 'number' ? item.confirmedCount : 0
-            item.confirmedCount = Math.max(1, current + 1)
-          }
+        const idx = this.list.findIndex(n => n.id === id)
+        if (idx !== -1) {
+          const n = this.list[idx]
+          const count = (n.confirmedCount ?? (n.confirmed ? 1 : 0)) + 1
+          this.list[idx] = { ...n, confirmed: true, confirmedCount: count }
         }
 
         this.save()
-        // 同步统计
-        this.stats = this.list.map(n => ({
-          id: n.id,
-          title: n.title || n.message || `通知 #${n.id}`,
-          confirmed: n.confirmedCount ?? (n.confirmed ? 1 : 0),
-          unconfirmed: []
-        }))
       } catch (e: any) {
         this.error = e?.message || String(e)
       } finally {
@@ -272,45 +240,22 @@ export const useNotificationStore = defineStore('notifications', {
       }
     },
 
-    /** 标记单条为已读（来自“复用组件”分支） */
-    markRead(id: number) {
-      const idx = this.list.findIndex(n => n.id === id)
-      if (idx !== -1) {
-        this.list[idx].read = true
-        this.save()
-      }
-    },
-
-    /** 全部标记为已读（来自“复用组件”分支） */
+    /** 将所有消息标记为已读 */
     markAllRead() {
       this.list = this.list.map(n => ({ ...n, read: true }))
       this.save()
     },
 
-    /** 管理页的删除 */
-    remove(id: number) {
-      this.list = this.list.filter(n => n.id !== id)
-      this.save()
-      this.stats = this.list.map(n => ({
-        id: n.id,
-        title: n.title || n.message || `通知 #${n.id}`,
-        confirmed: n.confirmedCount ?? (n.confirmed ? 1 : 0),
-        unconfirmed: []
-      }))
-    },
+    /** 为开发与离线准备的模拟数据注入 */
+    seedIfEmpty() {
+      if (this.list.length === 0) {
+        const now = new Date().toISOString()
+        this.list = [
+          { id: 1, title: '服务器维护通知', message: '今晚 23:00-24:00 维护窗口', createdAt: now, read: false, confirmed: false, confirmedCount: 0 },
+          { id: 2, title: '安全提醒', message: '请及时更新密码', createdAt: now, read: false, confirmed: false, confirmedCount: 0 }
+        ]
+        this.nextId = 3
 
-    /** 统计页：若已有列表则由列表计算，否则提供示例数据 */
-    async fetchStats() {
-      // 轻微延迟模拟
-      await new Promise(r => setTimeout(r, 120))
-      if (this.list.length > 0) {
-        this.stats = this.list.map(n => ({
-          id: n.id,
-          title: n.title || n.message || `通知 #${n.id}`,
-          confirmed: n.confirmedCount ?? (n.confirmed ? 1 : 0),
-          unconfirmed: []
-        }))
-      } else {
         this.stats = [
           { id: 1, title: '服务器维护通知', confirmed: 3, unconfirmed: ['张三', '李四'] },
           { id: 2, title: '安全提醒', confirmed: 5, unconfirmed: [] }
